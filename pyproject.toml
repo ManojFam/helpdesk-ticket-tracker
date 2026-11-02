@@ -1,0 +1,11 @@
+# Tool settings only; dependencies are in requirements.txt.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["helpdesk/migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# `ruff format` keeps code within line-length; long lines left are data and test strings.
+ignore = ["E501"]
