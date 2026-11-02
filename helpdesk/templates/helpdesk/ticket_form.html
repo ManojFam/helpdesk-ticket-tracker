@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}New ticket{% endblock %}
+{% block content %}
+<div class="columns">
+  <section class="card">
+    <h1>Raise a ticket</h1>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Submit ticket</button>
+    </form>
+  </section>
+  <aside class="card">
+    <h2>Fix it yourself?</h2>
+    <p class="muted">These guides solve the most common problems in a few minutes.</p>
+    <ul>
+      {% for article in articles %}
+        <li><a href="{{ article.get_absolute_url }}">{{ article.title }}</a></li>
+      {% empty %}
+        <li class="muted">No articles yet.</li>
+      {% endfor %}
+    </ul>
+    <p><a href="{% url 'article_list' %}">Search the knowledge base &rarr;</a></p>
+  </aside>
+</div>
+{% endblock %}

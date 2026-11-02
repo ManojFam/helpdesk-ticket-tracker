@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load helpdesk_tags %}
+{% block title %}Tickets{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{% if user.is_staff %}Tickets{% else %}My tickets{% endif %}</h1>
+  <a class="button" href="{% url 'ticket_create' %}">New ticket</a>
+</div>
+
+<form class="filters" method="get">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search title, description or #number">
+  <select name="status">
+    <option value="open" {% if status == "open" %}selected{% endif %}>All open</option>
+    <option value="all" {% if status == "all" %}selected{% endif %}>Any status</option>
+    {% for value, label in statuses %}
+      <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="priority">
+    <option value="">Any priority</option>
+    {% for value, label in priorities %}
+      <option value="{{ value }}" {% if priority == value|stringformat:"d" %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  {% if user.is_staff %}
+    <select name="assigned">
+      <option value="">Anyone</option>
+      <option value="me" {% if assigned == "me" %}selected{% endif %}>Assigned to me</option>
+      <option value="none" {% if assigned == "none" %}selected{% endif %}>Unassigned</option>
+    </select>
+  {% endif %}
+  <button type="submit">Filter</button>
+</form>
+
+{% if page.object_list %}
+<table>
+  <thead>
+    <tr><th>#</th><th>Title</th><th>Priority</th><th>Status</th>{% if user.is_staff %}<th>Assignee</th>{% endif %}<th>Resolution SLA</th></tr>
+  </thead>
+  <tbody>
+  {% for ticket in page.object_list %}
+    <tr>
+      <td><a href="{{ ticket.get_absolute_url }}">#{{ ticket.pk }}</a></td>
+      <td><a href="{{ ticket.get_absolute_url }}">{{ ticket.title }}</a><div class="muted small">{{ ticket.category|default:"" }}</div></td>
+      <td>{% priority_badge ticket %}</td>
+      <td>{{ ticket.get_status_display }}</td>
+      {% if user.is_staff %}<td>{{ ticket.assignee|person }}</td>{% endif %}
+      <td>{% sla_badge ticket %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<p class="pager">
+  {% if page.has_previous %}<a href="?{{ filters_query }}&page={{ page.previous_page_number }}">&larr; Previous</a>{% endif %}
+  Page {{ page.number }} of {{ page.paginator.num_pages }} ({{ page.paginator.count }} tickets)
+  {% if page.has_next %}<a href="?{{ filters_query }}&page={{ page.next_page_number }}">Next &rarr;</a>{% endif %}
+</p>
+{% else %}
+  <p class="muted">No tickets match these filters.</p>
+{% endif %}
+{% endblock %}

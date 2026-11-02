@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ article.title }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'article_list' %}">&larr; Knowledge base</a></p>
+<article class="card">
+  <h1>{{ article.title }}</h1>
+  <p class="muted small">{{ article.category|default:"General" }} &middot; updated {{ article.updated_at|date:"j M Y" }}</p>
+  {% if article.summary %}<p class="lead">{{ article.summary }}</p>{% endif %}
+  <div class="prose">{{ article.body|linebreaks }}</div>
+</article>
+<p class="muted">Still stuck? <a href="{% url 'ticket_create' %}">Raise a ticket</a>.</p>
+{% endblock %}

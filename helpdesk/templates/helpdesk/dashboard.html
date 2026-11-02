@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% load helpdesk_tags %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Service desk dashboard</h1>
+
+<section class="stats">
+  <a class="stat" href="{% url 'ticket_list' %}?status=open"><strong>{{ open_count }}</strong>Open tickets</a>
+  <div class="stat danger"><strong>{{ breached_count }}</strong>SLA breached</div>
+  <div class="stat warning"><strong>{{ at_risk_count }}</strong>SLA at risk</div>
+  <a class="stat" href="{% url 'ticket_list' %}?assigned=none"><strong>{{ unassigned_count }}</strong>Unassigned</a>
+  <div class="stat"><strong>{{ awaiting_response_count }}</strong>Awaiting first reply</div>
+  <a class="stat" href="{% url 'ticket_list' %}?assigned=me"><strong>{{ my_open_count }}</strong>Assigned to me</a>
+</section>
+
+<div class="columns">
+  <section class="card">
+    <h2>Open tickets by priority</h2>
+    {% for row in by_priority %}
+      <div class="bar-row">
+        <span class="bar-label">{{ row.label }}</span>
+        <span class="bar"><span class="bar-fill p{{ row.value }}" style="width: {{ row.share }}%"></span></span>
+        <span class="bar-count">{{ row.count }}</span>
+      </div>
+    {% endfor %}
+    <h2>Open tickets by status</h2>
+    {% for row in by_status %}
+      <div class="status-row">
+        <span>{{ row.label }}</span>
+        <span class="bar-count">{{ row.count }}</span>
+      </div>
+    {% endfor %}
+  </section>
+
+  <section class="card">
+    <h2>Last 7 days</h2>
+    <p class="big">{{ created_7d }} raised &middot; {{ resolved_7d }} resolved</p>
+    <h2>SLA compliance (30 days)</h2>
+    {% if compliance is None %}
+      <p class="muted">No tickets resolved yet.</p>
+    {% else %}
+      <p class="big">{{ compliance }}%</p>
+      <p class="muted">of {{ resolved_30d }} resolved tickets met their resolution target.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="card">
+  <h2>Needs attention</h2>
+  {% if needs_attention %}
+    <table>
+      <thead><tr><th>#</th><th>Title</th><th>Priority</th><th>Assignee</th><th>Resolution SLA</th></tr></thead>
+      <tbody>
+      {% for ticket in needs_attention %}
+        <tr>
+          <td><a href="{{ ticket.get_absolute_url }}">#{{ ticket.pk }}</a></td>
+          <td><a href="{{ ticket.get_absolute_url }}">{{ ticket.title }}</a></td>
+          <td>{% priority_badge ticket %}</td>
+          <td>{{ ticket.assignee|person:"Unassigned" }}</td>
+          <td>{% sla_badge ticket %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">Nothing breached or at risk. Nice.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Knowledge base{% endblock %}
+{% block content %}
+<h1>Knowledge base</h1>
+<form class="filters" method="get">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search, e.g. wifi, printer, password">
+  <button type="submit">Search</button>
+</form>
+
+{% for article in articles %}
+  <article class="card article-item">
+    <h2><a href="{{ article.get_absolute_url }}">{{ article.title }}</a></h2>
+    <p class="muted small">{{ article.category|default:"General" }} &middot; updated {{ article.updated_at|date:"j M Y" }}</p>
+    <p>{{ article.summary }}</p>
+  </article>
+{% empty %}
+  <p class="muted">No articles found{% if q %} for "{{ q }}"{% endif %}. <a href="{% url 'ticket_create' %}">Raise a ticket</a> instead.</p>
+{% endfor %}
+{% endblock %}
