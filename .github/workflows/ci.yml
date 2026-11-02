@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # A throwaway key for the test run only; real keys live in .env, which is never committed.
+      DJANGO_SECRET_KEY: ci-only-not-a-real-secret
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install -r requirements.txt ruff
+
+      - name: Lint
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Django checks
+        run: |
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+
+      - name: Test
+        run: python manage.py test --verbosity 2
