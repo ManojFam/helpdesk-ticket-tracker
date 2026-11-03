@@ -1,9 +1,59 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 
-from helpdesk import sla
+from helpdesk import roles, sla
+
+
+class Organisation(models.Model):
+    """A business customer of TechCare, e.g. a dental clinic or a logistics company."""
+
+    name = models.CharField(max_length=120, unique=True)
+    phone = models.CharField(max_length=30, blank=True)
+    address = models.CharField(max_length=250, blank=True)
+    is_active = models.BooleanField(
+        default=True, help_text="Untick when the organisation is no longer a customer."
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Profile(models.Model):
+    """Extra details for every user. Created automatically with the user (see signals.py)."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile"
+    )
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="members",
+        help_text="Leave empty for home customers and TechCare staff.",
+    )
+    is_org_manager = models.BooleanField(
+        "organisation manager",
+        default=False,
+        help_text="Can see every ticket raised by people in their organisation.",
+    )
+    phone = models.CharField(max_length=30, blank=True)
+
+    def __str__(self):
+        return f"Profile of {self.user}"
+
+    def clean(self):
+        if self.is_org_manager and not self.organisation_id:
+            raise ValidationError(
+                {"is_org_manager": "Only a member of an organisation can be its manager."}
+            )
 
 
 class Category(models.Model):
@@ -22,9 +72,17 @@ class TicketQuerySet(models.QuerySet):
         return self.filter(status__in=Ticket.OPEN_STATUSES)
 
     def visible_to(self, user):
-        """IT staff see every ticket; everyone else only sees tickets they raised."""
+        """The tickets a user may see. Every page that shows or changes a ticket uses this.
+
+        TechCare staff: every ticket. Organisation managers: their organisation's tickets
+        and their own. Everyone else: only the tickets they raised.
+        """
         if user.is_staff:
             return self
+        if roles.role_of(user) == roles.ORG_MANAGER:
+            return self.filter(
+                models.Q(organisation=roles.organisation_of(user)) | models.Q(requester=user)
+            )
         return self.filter(requester=user)
 
 
@@ -58,6 +116,11 @@ class Ticket(models.Model):
         related_name="assigned_tickets",
         limit_choices_to={"is_staff": True},
     )
+    # Copied from the requester when the ticket is raised, so the ticket stays with that
+    # organisation even if the person later moves on.
+    organisation = models.ForeignKey(
+        Organisation, on_delete=models.PROTECT, null=True, blank=True, related_name="tickets"
+    )
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     priority = models.PositiveSmallIntegerField(choices=Priority.choices, default=Priority.MEDIUM)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW)
@@ -83,6 +146,9 @@ class Ticket(models.Model):
         return reverse("ticket_detail", args=[self.pk])
 
     def save(self, *args, **kwargs):
+        if self._state.adding and self.organisation_id is None:
+            self.organisation = roles.organisation_of(self.requester)
+
         # Due dates always follow from priority and the time the ticket was raised, so
         # changing the priority moves the deadlines (counted from creation, not from now).
         self.response_due_at, self.resolution_due_at = sla.due_dates(self.priority, self.created_at)
