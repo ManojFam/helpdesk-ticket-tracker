@@ -20,6 +20,9 @@ file, the data model, the SLA rules, permissions, a demo script and interview ta
 - **Public website** at `/`: what TechCare does for businesses and homes, how it works, a
   services and prices page (`/services/`) managed in the admin, and the response-time table,
   which is read from the same SLA rules the tickets use.
+- **Self sign-up** for home customers, with email and password or **Sign in with Google**
+  (django-allauth). The email must be verified before the first login. Business customers'
+  accounts are created by TechCare in the admin.
 - **Tickets** have a priority (P1 to P4), a status (New, In progress, Waiting on requester,
   Resolved, Closed), a category and an assignee. The conversation thread supports
   **internal notes** that only TechCare staff can see.
@@ -56,6 +59,11 @@ An organisation manager sees their whole organisation's tickets, and nobody else
 
 ![Organisation manager's view](docs/manager-tickets.png)
 
+Creating a home customer account (the verification email is printed in the server terminal
+during development):
+
+![Sign up](docs/signup.png)
+
 Knowledge base search, as a customer sees it:
 
 ![Knowledge base](docs/kb.png)
@@ -79,8 +87,9 @@ python manage.py seed_demo    # fictional demo data; prints the demo password
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000 for the website, then click **Log in** to reach the portal
-(`/portal/`). Log in as:
+Open http://127.0.0.1:8000 for the website. Click **Create account** to sign up as a new
+home customer: the verification email, with its link, is printed in the terminal running
+`runserver`. Or click **Log in** and use a demo account:
 
 - `jordan.lee`, technician (dashboard, all tickets)
 - `sam.taylor`, manager at Northside Dental Clinic (all of Northside's tickets)
@@ -88,9 +97,14 @@ Open http://127.0.0.1:8000 for the website, then click **Log in** to reach the p
 - `alex.chen`, home customer
 - `helpdesk.admin`, admin (also has the Django admin at `/admin/`)
 
-`seed_demo` generates a random password and prints it once. Pass `--password` to choose one,
+Demo accounts log in with their username (or `username@example.com`). `seed_demo` generates
+a random password and prints it once. Pass `--password` to choose one,
 or `--reset` to replace existing demo data. All demo people, emails (`@example.com`) and
 tickets are made up.
+
+**Optional: Sign in with Google.** Put a Google OAuth client ID and secret in `.env`, and the
+button appears on the login and sign-up pages. Step-by-step:
+[docs/GOOGLE_SIGN_IN.md](docs/GOOGLE_SIGN_IN.md).
 
 ## How it is built
 
@@ -143,6 +157,10 @@ Design choices:
   of its own: services are rows an admin edits, and the response-time table is generated from
   `sla.py`, so the published promise always matches what the portal measures. The portal
   sits under `/portal/`. Every link uses a named URL, so moving it was a one-line change.
+- **Accounts use django-allauth, not home-made login code.** Self sign-ups must verify their
+  email before logging in, logins and emails are rate-limited, and the forms never reveal
+  whether an address is registered. Accounts created by TechCare staff are trusted
+  (`helpdesk/accounts.py`), so business users aren't asked to verify an address an admin typed in.
 - **Configuration comes from environment variables.** `SECRET_KEY` is required, `DEBUG`
   defaults to off, and `.env` is never committed (see `.env.example`).
 
@@ -156,9 +174,9 @@ python manage.py test
 ruff check . && ruff format --check .
 ```
 
-There are 78 tests. They cover every SLA rule and boundary, due dates and priority changes,
+There are 94 tests. They cover every SLA rule and boundary, due dates and priority changes,
 first-response rules, what each of the four roles can see, comment on or update (including
-one customer never seeing another's tickets), internal-note privacy,
+one customer never seeing another's tickets), sign-up, email verification and login, internal-note privacy,
 ticket list filters and ordering, dashboard counts and compliance, knowledge-base search and
 drafts, the public website pages, and the demo seed command. Test runs use a fast password hasher so the suite takes
 under a second. GitHub Actions runs `manage.py check`, a missing-migrations check, ruff and the

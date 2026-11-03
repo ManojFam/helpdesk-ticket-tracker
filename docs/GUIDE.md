@@ -42,7 +42,7 @@ customers** (organisations) and **home customers**. There are two parts:
 
 | Role | Who | What they see |
 |---|---|---|
-| **Customer** | Someone at a business customer, or a home customer | Their own tickets, a "New ticket" form and the knowledge base |
+| **Customer** | Someone at a business customer (account created by TechCare), or a home customer (signed up themselves, with email or Google) | Their own tickets, a "New ticket" form and the knowledge base |
 | **Organisation manager** | A customer marked as manager of their organisation | Everything a customer sees, plus **every ticket raised by people in their organisation** |
 | **Technician** | TechCare staff (`is_staff` ticked) | The dashboard, every ticket, the update panel (status, priority, assignee) and internal notes |
 | **Admin** | TechCare staff who are also superusers | All of the above, plus the Django admin at `/admin/` (organisations, users, articles) |
@@ -66,7 +66,15 @@ python manage.py runserver
 ```
 
 Open http://127.0.0.1:8000. That's the **public website**. Look around: *Services &
-prices*, *How it works* and *Response times*. Then click **Log in** and follow this script:
+prices*, *How it works* and *Response times*.
+
+**Sign up as a new home customer:** click **Create account**, fill in a made-up name, an
+address like `you@example.com` and a password. The page says a verification email was sent.
+Look in the terminal running `runserver`: the email is printed there, with a
+`/accounts/confirm-email/...` link. Open the link and click **Confirm**. You're logged in, on
+*My tickets*, as a customer with no organisation.
+
+Then log out, click **Log in** and follow this script:
 
 The demo has these people (all fictional):
 
@@ -153,14 +161,17 @@ helpdesk/
   signals.py              creates a Profile whenever a user is created
   views.py                one function per page
   urls.py                 the addresses of those pages
-  forms.py                new ticket, update ticket, add comment
+  forms.py                new ticket, update ticket, add comment, sign-up extra fields
+  accounts.py             trust_email() for TechCare-created accounts, display_name()
   permissions.py          @staff_required
   admin.py                how the models appear in /admin/ (users with their profile)
   templatetags/
     helpdesk_tags.py      {% sla_badge %}, {% priority_badge %}, |person, |role_label
   templates/
     base.html             header and menu shared by every page
-    registration/login.html
+    account/              our versions of allauth's pages: login.html, signup.html,
+                          _google_button.html, email/ (the verification email text)
+    allauth/layouts/base.html   makes allauth's other pages use base.html
     helpdesk/*.html       dashboard, ticket list/detail/form, knowledge base
   static/helpdesk/style.css   the only stylesheet
   management/commands/seed_demo.py   fills the database with demo data
@@ -407,13 +418,13 @@ database queries.
 
 ## 10. Tests and CI
 
-Run all 78 tests:
+Run all 94 tests:
 
 ```bash
 python manage.py test
 ```
 
-You should see `Ran 78 tests ... OK`. Each test creates its own empty test database, so
+You should see `Ran 94 tests ... OK`. Each test creates its own empty test database, so
 your real data is never touched.
 
 | File | What it checks |
@@ -421,6 +432,7 @@ your real data is never touched.
 | `tests/test_sla.py` | Every SLA rule and boundary (exactly 25% left, exactly at the deadline, ...) and the "2h 15m left" text |
 | `tests/test_models.py` | Deadlines on create and on priority change, resolved/reopened, first-response rules, `open()` and `visible_to()` |
 | `tests/test_views.py` | Login redirects, 403/404 rules, raising/updating/commenting, internal-note privacy, list filters and order, dashboard counts, knowledge-base search |
+| `tests/test_accounts.py` | Sign-up makes a home customer and sends a branded verification email, no login before confirming, confirming logs in, sign-up can't make staff or join an organisation, existing emails aren't revealed, weak passwords refused, login by username or email, logout, password reset, trusted emails for admin-created users, the Google button only when configured and that it redirects to Google |
 | `tests/test_organisations.py` | Profiles are created automatically, the four roles, which tickets each role can see/open/comment on, managers still blocked from staff pages, staff filter by customer, dashboard per-customer counts, admin pages |
 | `tests/test_seed_demo.py` | The demo data covers every SLA state, every customer type and the price list, the password option, and refusing to seed twice |
 | `website/tests.py` | The public pages work without logging in, show only active services (at most 6 on the home page), group them for businesses and homes, show response times taken from `sla.py`, the "From $129 per visit" price format, and that login goes to the portal and logout back to the website |
@@ -463,6 +475,17 @@ A green badge on the README means every step passed for the latest commit.
 - **Templates escape everything** by default. A ticket titled `<script>` shows as text and
   doesn't run.
 - The **demo password** is generated randomly by `seed_demo` and never stored in the code.
+- **Accounts are handled by django-allauth**, a widely used, maintained package, rather than
+  home-made login code. It brings:
+  - **email verification** before anyone can log in
+  - **rate limits** on login attempts and emails (stored in Django's cache)
+  - **enumeration protection:** the sign-up and password-reset pages never reveal whether an
+    email address already has an account
+  - Django's **password strength rules**
+- **Google keys** (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) live in `.env`, like the secret
+  key. See [GOOGLE_SIGN_IN.md](GOOGLE_SIGN_IN.md).
+- **Emails** go to the terminal in development (`DJANGO_EMAIL_BACKEND` defaults to the
+  console backend). A real deployment would set an SMTP backend in `.env`.
 
 Before putting this on the internet you'd also want HTTPS, secure cookies, a real
 database (PostgreSQL) and a production web server. That's out of scope for this demo.
@@ -487,8 +510,16 @@ python manage.py createsuperuser
    choose the organisation and tick *Organisation manager* for their main contact. Save.
 4. Repeat step 2 and 3 for each person (without the manager tick).
 
-The organisation's page now lists its members. A home customer is just a user with no
-organisation (and later, with feature 3, they sign up themselves).
+The organisation's page now lists its members. **Give everyone an email address:** login
+uses it, and because a TechCare admin typed it in, it counts as verified straight away
+(the admin shows a warning if you save someone without one). Home customers usually sign
+up themselves on the website, but an admin can also create one: just leave the
+organisation empty.
+
+**Turn on "Sign in with Google":** follow [GOOGLE_SIGN_IN.md](GOOGLE_SIGN_IN.md).
+
+**See the emails the app sends** (verification, password reset): they're printed in the
+terminal running `runserver`.
 
 **Add a category or knowledge-base article:** `/admin/`, then *Categories* or *Articles*,
 then *Add*. The slug fills itself in from the title.
@@ -520,7 +551,8 @@ Questions you may get, with short answers in your own words:
 It's the customer portal for an IT services company, built in Django. Business and home
 customers raise tickets, technicians work them against SLA targets per priority, there's a
 knowledge base for self-service and a dashboard that shows what's breached or at risk.
-It has four roles, from customer up to admin, 78 automated tests and CI on GitHub. There's also a public website that
+Home customers sign up themselves with email or Google. It has four roles, from customer
+up to admin, 94 automated tests and CI on GitHub. There's also a public website that
 reads its prices and response times from the same data the portal uses.
 
 **"How do the SLA timers work?"**
@@ -552,6 +584,15 @@ Because people move. If Casey leaves Northside, Casey's old tickets still belong
 Northside, and Northside's manager should still see them. It also makes "all tickets for this
 customer" a simple filter.
 
+**"How does sign-up work, and how do you stop fake accounts?"**
+I used django-allauth rather than writing login code myself. People sign up with name, email
+and password, or with Google. They must click a link in a verification email before they can
+log in, so nobody can register with someone else's address. allauth also rate-limits login
+attempts and never reveals whether an email address is already registered. Self sign-ups are
+always home customers: the form has no organisation or staff fields, and there's a test that
+tries to sneak them in. Business accounts are created by TechCare, and because staff typed the
+address, it's trusted without a verification email.
+
 **"What would you add next?"**
 Business-hours SLAs, pausing the clock while waiting on the customer, email notifications,
 self sign-up and on-site bookings. Most of that is on the roadmap below.
@@ -580,6 +621,10 @@ service-operation ideas.
 | **Profile** | A table linked one-to-one to the user table, for extra details Django's user doesn't have |
 | **Signal** | Code Django runs automatically when something happens, e.g. "after a user is saved" |
 | **Data migration** | A migration that changes data rather than table structure (here: create missing profiles) |
+| **OAuth / "Sign in with Google"** | The user signs in at Google, and Google tells our app who they are. Our app never sees their Google password |
+| **Email verification** | Proving you own an address by clicking a link sent to it |
+| **Account enumeration** | Finding out which emails have accounts by watching how a form responds. allauth's pages respond the same either way |
+| **Rate limiting** | Refusing too many attempts in a short time, e.g. password guessing |
 
 ## 15. Roadmap: TechCare Services
 
@@ -589,8 +634,7 @@ customer portal, one feature at a time, each with tests and an update to this gu
 
 1. ~~**Organisations and roles.**~~ **Done.** See [16.1](#161-feature-1-organisations-and-roles).
 2. ~~**Company website.**~~ **Done.** See [16.2](#162-feature-2-the-techcare-website).
-3. **Self sign-up.** Home customers create an account with email, or with
-   *Sign in with Google*.
+3. ~~**Self sign-up.**~~ **Done.** See [16.3](#163-feature-3-self-sign-up-with-email-or-google).
 4. **Book a technician visit.** Choose a service, an address and a time slot. Technicians
    see their schedule.
 5. **Service charges.** A price list and a quote on every booking. No real payments.
@@ -702,3 +746,68 @@ promise. Existing customers click *Log in* to reach the portal.
 
 **How to check it yourself:** open http://127.0.0.1:8000, click around the website, then
 follow step 10 of the demo script in [section 2](#2-try-it-in-5-minutes) to change a price.
+
+### 16.3 Feature 3: Self sign-up with email or Google
+
+**Goal.** Home customers can create their own account on the website, with email and
+password or with *Sign in with Google*, and start raising tickets. Business customers'
+accounts are still created by TechCare.
+
+**What changed**
+
+| File | Change |
+|---|---|
+| `requirements.txt` | Added `django-allauth[socialaccount]` (it brings `requests`, `PyJWT` and `cryptography` for Google) |
+| `config/settings.py` | allauth apps, middleware and authentication backend, plus the account settings (login by email or username, sign-up fields, **mandatory email verification**, branded emails, Google keys read from `.env`) |
+| `config/urls.py` | `/accounts/` now comes from allauth (login, logout, sign-up, confirm email, password reset, Google callback) |
+| `helpdesk/forms.py` | `SignupDetailsForm`: first and last name on the sign-up page |
+| `helpdesk/accounts.py` (new) | `trust_email()` and `display_name()` |
+| `helpdesk/admin.py` | Saving a user trusts their email, or warns if there is none |
+| `templates/account/` (new) | Our login and sign-up pages, the Google button and the verification email text |
+| `templates/allauth/layouts/base.html` (new) | allauth's other pages use the portal layout |
+| templates, CSS | *Log in* / *Create account* links on the website and portal, and the auth page styles |
+| `seed_demo.py` | Demo users' emails are trusted, so they can log in straight away |
+| `docs/GOOGLE_SIGN_IN.md` (new) | Click-by-click Google Cloud setup |
+| `tests/test_accounts.py` (new) | 16 tests (section 10) |
+
+**Decisions and why**
+
+1. **django-allauth instead of writing it myself.** Sign-up, verification links, password
+   reset, rate limiting and OAuth are easy to get subtly wrong, and mistakes become security
+   holes. allauth is the standard, maintained Django package for all of it. Our code only
+   customises it: settings, templates and one small form.
+2. **Email verification is mandatory.** Without it, anyone could register with someone
+   else's address and raise tickets in their name. allauth won't log anyone in until the
+   link in the verification email has been clicked.
+3. **But accounts created by TechCare are trusted.** allauth applies the rule to everyone.
+   Business users and technicians are created by an admin who typed the address in, and they
+   shouldn't get a surprise "verify your email" on their first login. If no address was
+   entered, they'd be stuck for good. `trust_email()` marks the address as verified when staff
+   save a user in the admin, and the seed does the same for the demo users. That keeps "staff
+   vouch for it" in one small, tested function.
+4. **Sign-up can only create home customers.** The form has name, email and password. There
+   is no organisation, staff or manager field, so there's nothing to tamper with, and a
+   test posts those fields anyway to prove they're ignored.
+5. **Log in with email *or* username.** Self sign-ups use their email (allauth generates a
+   username behind the scenes). Existing staff and demo accounts keep their usernames.
+6. **The Google button only appears when keys are configured.** Without keys the app still
+   works fully with email. With keys in `.env` (never in code), the button appears and the
+   flow goes to Google and back. The button is a POST form, not a link, which allauth
+   requires so other websites can't start a login on your behalf.
+7. **Emails print to the terminal in development** (Django's console email backend), so the
+   whole flow can be tried without an email account. A real server would set an SMTP backend
+   in `.env`.
+8. **Branding and names.** Emails say TechCare Services instead of `127.0.0.1:8000`, and
+   messages say "signed in as Alex Rivera" instead of the generated username
+   (`ACCOUNT_USER_DISPLAY`).
+
+**Things the tests taught me**
+
+- allauth rate-limits emails using Django's cache, which carries over between tests. The
+  sign-up tests clear the cache first, otherwise only the first test gets its email.
+- Signing up with an email that already has an account looks like a normal sign-up. That's
+  allauth's *enumeration protection*: the real owner gets an email instead. The test checks
+  for exactly that.
+
+**How to check it yourself:** the sign-up steps at the start of
+[section 2](#2-try-it-in-5-minutes). For Google, follow [GOOGLE_SIGN_IN.md](GOOGLE_SIGN_IN.md).
