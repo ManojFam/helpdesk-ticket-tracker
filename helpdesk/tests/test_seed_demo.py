@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from helpdesk import roles, sla
-from helpdesk.models import Article, Organisation, Ticket
+from helpdesk.models import Article, Organisation, Service, Ticket
 
 
 class SeedDemoTests(TestCase):
@@ -36,6 +36,7 @@ class SeedDemoTests(TestCase):
         )
         self.assertIsNone(roles.organisation_of(User.objects.get(username="alex.chen")))
         self.assertEqual(Organisation.objects.count(), 2)
+        self.assertEqual(Service.objects.filter(is_active=True).count(), 8)
         self.assertTrue(Ticket.objects.filter(organisation__isnull=True).exists())
         self.assertEqual(
             Ticket.objects.filter(organisation__name="Harbour Freight Co")

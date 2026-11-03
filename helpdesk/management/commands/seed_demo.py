@@ -1,5 +1,5 @@
-"""Fills an empty database with fictional demo data: users, categories, knowledge-base
-articles and tickets in every SLA state. For local demos only.
+"""Fills an empty database with fictional demo data: users, organisations, services,
+categories, knowledge-base articles and tickets in every SLA state. For local demos only.
 
     python manage.py seed_demo                    # prints a generated password
     python manage.py seed_demo --password "..."   # choose the password
@@ -15,7 +15,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
-from helpdesk.models import Article, Category, Comment, Organisation, Ticket
+from helpdesk.models import Article, Category, Comment, Organisation, Service, Ticket
 
 # TechCare's business customers (fictional).
 ORGANISATIONS = {
@@ -34,6 +34,90 @@ USERS = [
     ("alex.chen", "Alex", "Chen", False, False, None, False),  # home customer
 ]
 CUSTOMERS = ["sam.taylor", "casey.nguyen", "dana.kim", "alex.chen"]
+
+# TechCare's price list: name, audience, delivery, price from (AUD), unit, summary, description
+SERVICES = [
+    (
+        "Remote support session",
+        "both",
+        "remote",
+        49,
+        "per half hour",
+        "Quick fixes over a secure remote connection.",
+        "Software problems, email, printers and settings fixed while you watch. "
+        "Most problems are solved in one session.",
+    ),
+    (
+        "On-site repair visit",
+        "both",
+        "onsite",
+        129,
+        "per visit",
+        "A technician comes to you. First hour included.",
+        "For anything that needs hands on: hardware faults, cabling, devices that will not "
+        "start. Includes travel and the first hour; then $99 per hour.",
+    ),
+    (
+        "New computer setup",
+        "both",
+        "either",
+        99,
+        "per device",
+        "Your new PC or Mac ready to use, with your files moved across.",
+        "We set up the device, install updates and your apps, move your files and settings "
+        "from the old one, and check backups are working.",
+    ),
+    (
+        "Home Wi-Fi and network setup",
+        "home",
+        "onsite",
+        149,
+        "per visit",
+        "Strong Wi-Fi in every room, set up securely.",
+        "Router and mesh Wi-Fi installed and secured, devices connected, and dead spots fixed. "
+        "Includes a check of your internet speed.",
+    ),
+    (
+        "Virus and slow computer clean-up",
+        "home",
+        "either",
+        89,
+        "per device",
+        "Remove malware, speed things up, keep your files.",
+        "We remove viruses and unwanted programs, fix start-up problems, and set up protection "
+        "so it does not happen again.",
+    ),
+    (
+        "Business support plan",
+        "business",
+        "either",
+        39,
+        "per user / month",
+        "Unlimited help desk support with guaranteed response times.",
+        "Unlimited remote support for your staff, priority on-site visits, monitoring of your "
+        "devices and a monthly report. Response times by priority, from 30 minutes.",
+    ),
+    (
+        "Office network and Wi-Fi install",
+        "business",
+        "onsite",
+        499,
+        "per site",
+        "Business-grade network, Wi-Fi and firewall for your office.",
+        "We design and install switches, Wi-Fi access points and a firewall, separate guest "
+        "Wi-Fi from staff, and document everything for you.",
+    ),
+    (
+        "Microsoft 365 setup and migration",
+        "business",
+        "remote",
+        25,
+        "per user",
+        "Email, Teams and OneDrive for your team, moved across without losing mail.",
+        "New tenant or migration from another provider, with MFA turned on, shared mailboxes "
+        "and calendars set up, and a short how-to session for staff.",
+    ),
+]
 
 CATEGORIES = [
     "Accounts & access",
@@ -324,6 +408,7 @@ class Command(BaseCommand):
             Ticket.objects.all().delete()
             Article.objects.all().delete()
             Category.objects.all().delete()
+            Service.objects.all().delete()
             User.objects.filter(username__in=[u[0] for u in USERS]).delete()
             Organisation.objects.filter(name__in=ORGANISATIONS).delete()
         elif Ticket.objects.exists():
@@ -351,6 +436,21 @@ class Command(BaseCommand):
             user.profile.is_org_manager = is_manager
             user.profile.save()
             users[username] = user
+
+        for order, (name, audience, delivery, price, unit, summary, description) in enumerate(
+            SERVICES
+        ):
+            Service.objects.create(
+                name=name,
+                slug=slugify(name),
+                audience=audience,
+                delivery=delivery,
+                price_from=price,
+                price_unit=unit,
+                summary=summary,
+                description=description,
+                sort_order=order,
+            )
 
         categories = {name: Category.objects.create(name=name) for name in CATEGORIES}
 
@@ -426,7 +526,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Created {len(USERS)} users, {len(ARTICLES)} articles and "
+                f"Created {len(USERS)} users, {len(SERVICES)} services, {len(ARTICLES)} articles and "
                 f"{Ticket.objects.count()} tickets."
             )
         )
