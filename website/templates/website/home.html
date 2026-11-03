@@ -1,0 +1,98 @@
+{% extends "website/base.html" %}
+{% block content %}
+<section class="hero">
+  <div class="wrap">
+    <h1>IT support that comes to you</h1>
+    <p class="lead">We set up and fix computers, networks and software for businesses and homes,
+      on site or remotely, with response times you can see.</p>
+    <p class="actions">
+      {% if user.is_authenticated %}
+        <a class="btn" href="{% url 'portal' %}">Open your portal</a>
+      {% else %}
+        <a class="btn" href="{% url 'login' %}">Log in to get help</a>
+      {% endif %}
+      <a class="btn btn-ghost" href="{% url 'site_services' %}">See services and prices</a>
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap highlights">
+    <div>
+      <h3>We come to you</h3>
+      <p>A technician visits your office or home to set things up or fix them in person.</p>
+    </div>
+    <div>
+      <h3>Or we fix it remotely</h3>
+      <p>Most software and account problems are solved over a secure remote session, often the same hour.</p>
+    </div>
+    <div>
+      <h3>You always know where things stand</h3>
+      <p>Every request has a response time. Track progress and talk to your technician in the portal.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section alt">
+  <div class="wrap">
+    <h2>What we do</h2>
+    {% if services %}
+      <div class="grid">
+        {% for service in services %}
+          {% include "website/_service_card.html" %}
+        {% endfor %}
+      </div>
+      <p><a href="{% url 'site_services' %}">All services and prices &rarr;</a></p>
+    {% else %}
+      <p class="muted">Our service list is being updated. Email us to ask about a job.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section" id="how-it-works">
+  <div class="wrap">
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li><strong>Tell us what's wrong.</strong> Raise a request in the portal, and check our help
+        articles while you wait.</li>
+      <li><strong>We reply, fast.</strong> A technician responds within the time for your priority.</li>
+      <li><strong>We fix it.</strong> Remotely if we can, or we arrange a visit.</li>
+      <li><strong>You stay in the loop.</strong> Follow every update in the portal until it's done.</li>
+    </ol>
+  </div>
+</section>
+
+<section class="section alt">
+  <div class="wrap two-col">
+    <div class="panel">
+      <h2>For businesses</h2>
+      <ul>
+        <li>An account for your organisation, with logins for your staff</li>
+        <li>Your manager sees every request from your team in one place</li>
+        <li>Response times by priority, so urgent problems come first</li>
+        <li>Monthly support plans, or pay as you go</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h2>For homes</h2>
+      <ul>
+        <li>New computer, printer or Wi-Fi set up properly</li>
+        <li>Virus clean-ups, slow-computer fixes and data recovery</li>
+        <li>Friendly technicians who explain things in plain English</li>
+        <li>Clear prices before we start</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+{% include "website/_response_times.html" %}
+
+<section class="cta">
+  <div class="wrap">
+    <h2>Something not working?</h2>
+    <p>Existing customers can raise a request now. New customer? Email
+      <a href="mailto:hello@techcare.example">hello@techcare.example</a> and we'll set you up.</p>
+    <a class="btn" href="{% if user.is_authenticated %}{% url 'portal' %}{% else %}{% url 'login' %}{% endif %}">Get help</a>
+  </div>
+</section>
+{% endblock %}

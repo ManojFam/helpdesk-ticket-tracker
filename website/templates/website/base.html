@@ -1,0 +1,44 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}IT support that comes to you{% endblock %} - TechCare Services</title>
+  <meta name="description" content="TechCare Services sets up and fixes computers, networks and software for businesses and homes, on site or remotely.">
+  <link rel="stylesheet" href="{% static 'website/site.css' %}">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="logo" href="{% url 'site_home' %}"><span class="logo-mark">TC</span> TechCare Services</a>
+      <nav>
+        <a href="{% url 'site_services' %}">Services &amp; prices</a>
+        <a href="{% url 'site_home' %}#how-it-works">How it works</a>
+        <a href="{% url 'site_home' %}#response-times">Response times</a>
+        {% if user.is_authenticated %}
+          <a class="btn btn-small" href="{% url 'portal' %}">Open portal</a>
+        {% else %}
+          <a class="btn btn-small" href="{% url 'login' %}">Log in</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div>
+        <strong>TechCare Services</strong><br>
+        IT setup and support for businesses and homes.<br>
+        <a href="mailto:hello@techcare.example">hello@techcare.example</a>
+      </div>
+      <div class="muted small">
+        TechCare Services is a fictional company: this site is a portfolio project.
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

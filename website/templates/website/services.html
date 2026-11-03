@@ -1,0 +1,39 @@
+{% extends "website/base.html" %}
+{% block title %}Services and prices{% endblock %}
+{% block content %}
+<section class="page-hero">
+  <div class="wrap">
+    <h1>Services and prices</h1>
+    <p class="lead">Prices are in Australian dollars and include GST. We always confirm the price
+      before we start.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <h2 id="business">For businesses</h2>
+    <div class="grid">
+      {% for service in business_services %}
+        {% include "website/_service_card.html" with show_description=True %}
+      {% empty %}
+        <p class="muted">No business services listed right now.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section alt">
+  <div class="wrap">
+    <h2 id="home">For homes</h2>
+    <div class="grid">
+      {% for service in home_services %}
+        {% include "website/_service_card.html" with show_description=True %}
+      {% empty %}
+        <p class="muted">No home services listed right now.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% include "website/_response_times.html" %}
+{% endblock %}

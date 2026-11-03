@@ -1,0 +1,9 @@
+<article class="service">
+  <h3>{{ service.name }}</h3>
+  <p class="tags">
+    <span class="tag">{{ service.get_delivery_display }}</span>
+    <span class="tag">{{ service.get_audience_display }}</span>
+  </p>
+  <p>{% if show_description and service.description %}{{ service.description }}{% else %}{{ service.summary }}{% endif %}</p>
+  <p class="price">{{ service.price_label }}</p>
+</article>

@@ -17,7 +17,7 @@ class AccessTests(TestCase):
 
     def test_anonymous_users_are_sent_to_login(self):
         for name, args in [
-            ("home", []),
+            ("portal", []),
             ("ticket_list", []),
             ("ticket_detail", [self.ticket.pk]),
             ("dashboard", []),
@@ -31,9 +31,9 @@ class AccessTests(TestCase):
 
     def test_home_sends_staff_to_dashboard_and_requesters_to_their_tickets(self):
         self.client.force_login(self.agent)
-        self.assertRedirects(self.client.get(reverse("home")), reverse("dashboard"))
+        self.assertRedirects(self.client.get(reverse("portal")), reverse("dashboard"))
         self.client.force_login(self.sam)
-        self.assertRedirects(self.client.get(reverse("home")), reverse("ticket_list"))
+        self.assertRedirects(self.client.get(reverse("portal")), reverse("ticket_list"))
 
     def test_requesters_cannot_open_the_dashboard(self):
         self.client.force_login(self.sam)
@@ -60,7 +60,7 @@ class AccessTests(TestCase):
 
     def test_login_page_works(self):
         response = self.client.post(reverse("login"), {"username": "sam", "password": PASSWORD})
-        self.assertRedirects(response, reverse("home"), fetch_redirect_response=False)
+        self.assertRedirects(response, reverse("portal"), fetch_redirect_response=False)
 
 
 class TicketFlowTests(TestCase):

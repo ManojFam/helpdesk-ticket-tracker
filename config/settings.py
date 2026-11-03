@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "helpdesk",
+    "website",
 ]
 
 MIDDLEWARE = [
@@ -101,5 +102,5 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "login"
-LOGIN_REDIRECT_URL = "home"
-LOGOUT_REDIRECT_URL = "login"
+LOGIN_REDIRECT_URL = "portal"
+LOGOUT_REDIRECT_URL = "site_home"

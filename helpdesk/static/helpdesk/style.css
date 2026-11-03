@@ -21,6 +21,7 @@ main { max-width: 1150px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
 .topbar { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; padding: .75rem 1.5rem; background: var(--brand); color: #fff; }
 .topbar a { color: #dbe7f5; }
 .topbar .brand { color: #fff; font-weight: 700; font-size: 1.1rem; }
+.topbar .brand-sub { color: #9fb3c8; font-weight: 400; font-size: .9rem; margin-left: .2rem; }
 .topbar nav { display: flex; gap: 1rem; flex-wrap: wrap; }
 .logout { margin-left: auto; display: flex; gap: .75rem; align-items: center; }
 button.link { background: none; border: 0; color: #dbe7f5; padding: 0; cursor: pointer; font: inherit; }

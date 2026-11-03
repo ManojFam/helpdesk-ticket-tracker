@@ -1,0 +1,15 @@
+<section class="section" id="response-times">
+  <div class="wrap">
+    <h2>Response times you can count on</h2>
+    <p class="lead">Every request gets a priority. The clock starts the moment you raise it, and
+      you can watch it in your portal.</p>
+    <table class="times">
+      <thead><tr><th>Priority</th><th>For example</th><th>We respond within</th><th>We aim to fix within</th></tr></thead>
+      <tbody>
+        {% for row in response_times %}
+          <tr><td><strong>{{ row.label }}</strong></td><td>{{ row.example }}</td><td>{{ row.response }}</td><td>{{ row.resolution }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>

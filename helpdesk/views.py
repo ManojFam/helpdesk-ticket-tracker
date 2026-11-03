@@ -16,7 +16,8 @@ from helpdesk.permissions import staff_required
 
 
 @login_required
-def home(request):
+def portal(request):
+    """/portal/ sends each person to the right starting page for their role."""
     if request.user.is_staff:
         return redirect("dashboard")
     return redirect("ticket_list")
