@@ -63,6 +63,18 @@ def sla_state(start: datetime, due: datetime, done_at: datetime | None, now: dat
     return ON_TRACK
 
 
+def describe_duration(delta: timedelta) -> str:
+    """'30 minutes', '1 hour', '24 hours', '3 days', for showing a target to customers."""
+    minutes = int(delta.total_seconds() // 60)
+    if minutes < 60:
+        return f"{minutes} minutes"
+    hours = minutes // 60
+    if hours <= 24:
+        return "1 hour" if hours == 1 else f"{hours} hours"
+    days = hours // 24
+    return "1 day" if days == 1 else f"{days} days"
+
+
 def describe_time_left(due: datetime, now: datetime) -> str:
     """'2h 15m left' or 'overdue by 1d 3h', for showing next to a timer."""
     delta = due - now

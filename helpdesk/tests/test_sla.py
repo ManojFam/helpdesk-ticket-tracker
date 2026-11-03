@@ -41,6 +41,20 @@ class SlaStateTests(SimpleTestCase):
         self.assertEqual(self.state(100, done_offset_h=8.01), sla.BREACHED)
 
 
+class DurationTests(SimpleTestCase):
+    def test_formats(self):
+        cases = [
+            (timedelta(minutes=30), "30 minutes"),
+            (timedelta(hours=1), "1 hour"),
+            (timedelta(hours=24), "24 hours"),
+            (timedelta(hours=48), "2 days"),
+            (timedelta(hours=72), "3 days"),
+        ]
+        for delta, text in cases:
+            with self.subTest(text=text):
+                self.assertEqual(sla.describe_duration(delta), text)
+
+
 class TimeLeftTests(SimpleTestCase):
     def test_formats(self):
         cases = [

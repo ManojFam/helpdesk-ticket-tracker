@@ -3,7 +3,15 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin
 
 from helpdesk import roles
-from helpdesk.models import Article, Category, Comment, Organisation, Profile, Ticket
+from helpdesk.models import (
+    Article,
+    Category,
+    Comment,
+    Organisation,
+    Profile,
+    Service,
+    Ticket,
+)
 
 User = get_user_model()
 
@@ -63,6 +71,23 @@ class TechCareUserAdmin(UserAdmin):
     @admin.display(description="organisation")
     def organisation(self, obj):
         return roles.organisation_of(obj) or "-"
+
+
+@admin.register(Service)
+class ServiceAdmin(admin.ModelAdmin):
+    list_display = [
+        "name",
+        "audience",
+        "delivery",
+        "price_from",
+        "price_unit",
+        "is_active",
+        "sort_order",
+    ]
+    list_editable = ["price_from", "is_active", "sort_order"]
+    list_filter = ["audience", "delivery", "is_active"]
+    search_fields = ["name", "summary"]
+    prepopulated_fields = {"slug": ["name"]}
 
 
 @admin.register(Category)

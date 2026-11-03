@@ -56,6 +56,55 @@ class Profile(models.Model):
             )
 
 
+class Service(models.Model):
+    """Something TechCare sells, shown on the public website's price list. Admins edit
+    these in /admin/; bookings and quotes will use them too."""
+
+    class Audience(models.TextChoices):
+        BUSINESS = "business", "Businesses"
+        HOME = "home", "Homes"
+        BOTH = "both", "Businesses and homes"
+
+    class Delivery(models.TextChoices):
+        ONSITE = "onsite", "On site"
+        REMOTE = "remote", "Remote"
+        EITHER = "either", "On site or remote"
+
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100, unique=True)
+    summary = models.CharField(max_length=200, help_text="One line, shown on the home page.")
+    description = models.TextField(blank=True, help_text="Shown on the services page.")
+    audience = models.CharField(max_length=10, choices=Audience.choices, default=Audience.BOTH)
+    delivery = models.CharField(max_length=10, choices=Delivery.choices, default=Delivery.EITHER)
+    price_from = models.DecimalField(
+        max_digits=8, decimal_places=2, help_text="Starting price in AUD, including GST."
+    )
+    price_unit = models.CharField(max_length=40, help_text='e.g. "per visit", "per user / month".')
+    is_active = models.BooleanField(default=True, help_text="Untick to hide it from the website.")
+    sort_order = models.PositiveSmallIntegerField(default=0, help_text="Lower numbers come first.")
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def price_label(self):
+        """'From $129 per visit' (cents only shown when there are some)."""
+        whole = self.price_from == self.price_from.to_integral_value()
+        amount = f"{self.price_from:,.0f}" if whole else f"{self.price_from:,.2f}"
+        return f"From ${amount} {self.price_unit}"
+
+    @property
+    def for_business(self):
+        return self.audience in (self.Audience.BUSINESS, self.Audience.BOTH)
+
+    @property
+    def for_home(self):
+        return self.audience in (self.Audience.HOME, self.Audience.BOTH)
+
+
 class Category(models.Model):
     name = models.CharField(max_length=60, unique=True)
 
