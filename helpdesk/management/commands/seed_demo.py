@@ -15,6 +15,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
+from helpdesk import bookings, roles
 from helpdesk.accounts import trust_email
 from helpdesk.models import Article, Category, Comment, Organisation, Service, Ticket
 
@@ -394,6 +395,79 @@ HISTORY = [
 ]
 
 
+# Technician visits: requester, service, days from today, slot, final status, technician, problem.
+VISITS = [
+    (
+        "alex.chen",
+        "Home Wi-Fi and network setup",
+        2,
+        "morning",
+        "requested",
+        None,
+        "Wi-Fi drops out in the back bedroom and the garage.",
+    ),
+    (
+        "casey.nguyen",
+        "New computer setup",
+        1,
+        "afternoon",
+        "confirmed",
+        "jordan.lee",
+        "Two new reception PCs to set up, with the booking system and printers.",
+    ),
+    (
+        "sam.taylor",
+        "On-site repair visit",
+        0,
+        "afternoon",
+        "confirmed",
+        "riley.morgan",
+        "Front desk printer jams on every second page.",
+    ),
+    (
+        "dana.kim",
+        "Office network and Wi-Fi install",
+        3,
+        "morning",
+        "confirmed",
+        "jordan.lee",
+        "New warehouse office needs network points and Wi-Fi for 12 people.",
+    ),
+    (
+        "alex.chen",
+        "Virus and slow computer clean-up",
+        -5,
+        "morning",
+        "completed",
+        "riley.morgan",
+        "Laptop is very slow and shows pop-ups.",
+    ),
+    (
+        "dana.kim",
+        "On-site repair visit",
+        5,
+        "afternoon",
+        "cancelled",
+        None,
+        "Boardroom screen not detecting laptops.",
+    ),
+]
+HOME_ADDRESS = "21 Example Avenue, Northside VIC"
+# Australian mobile numbers set aside for fiction by the ACMA, so they can't belong to anyone.
+PHONES = {
+    "sam.taylor": "0491 570 156",
+    "casey.nguyen": "0491 570 157",
+    "dana.kim": "0491 570 158",
+    "alex.chen": "0491 570 159",
+}
+
+
+def open_day(today, days_from_today):
+    """today + n days, moved to the Monday if it lands on a Sunday (no Sunday visits)."""
+    day = today + timedelta(days=days_from_today)
+    return day + timedelta(days=1) if day.weekday() == bookings.SUNDAY else day
+
+
 class Command(BaseCommand):
     help = "Create fictional demo users, knowledge-base articles and tickets (local demos only)."
 
@@ -526,10 +600,41 @@ class Command(BaseCommand):
             )
             ticket.add_comment(ticket.assignee, "On it.", at=created + timedelta(minutes=20))
 
+        # Visits go through the same functions the portal uses, so they follow the same rules
+        # and leave the same comments on their tickets.
+        today = timezone.localdate()
+        for requester, service, days, slot, status, tech, problem in VISITS:
+            customer = users[requester]
+            organisation = roles.organisation_of(customer)
+            booking = bookings.request_visit(
+                customer,
+                service=Service.objects.get(name=service),
+                visit_date=open_day(today, days),
+                time_slot=slot,
+                address=ORGANISATIONS[organisation.name] if organisation else HOME_ADDRESS,
+                contact_phone=PHONES[requester],
+                notes="Parking at the rear." if organisation else "",
+                problem=problem,
+            )
+            if status in ("confirmed", "completed"):
+                bookings.confirm_visit(
+                    booking,
+                    by=users[tech],
+                    technician=users[tech],
+                    visit_date=booking.visit_date,
+                    time_slot=slot,
+                )
+            if status == "completed":
+                bookings.complete_visit(
+                    booking, by=users[tech], summary="Removed adware and installed updates."
+                )
+            if status == "cancelled":
+                bookings.cancel_visit(booking, by=customer, today=today, reason="Fixed remotely.")
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"Created {len(USERS)} users, {len(SERVICES)} services, {len(ARTICLES)} articles and "
-                f"{Ticket.objects.count()} tickets."
+                f"{Ticket.objects.count()} tickets ({len(VISITS)} with technician visits)."
             )
         )
         self.stdout.write(
