@@ -5,8 +5,8 @@ from django.core.management import CommandError, call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from helpdesk import sla
-from helpdesk.models import Article, Ticket
+from helpdesk import roles, sla
+from helpdesk.models import Article, Organisation, Ticket
 
 
 class SeedDemoTests(TestCase):
@@ -24,6 +24,25 @@ class SeedDemoTests(TestCase):
         states = {t.resolution_sla(now) for t in Ticket.objects.all()}
         self.assertEqual(states, {sla.ON_TRACK, sla.AT_RISK, sla.BREACHED, sla.MET})
         self.assertNotIn("demo-pass-123", out.getvalue())
+
+    def test_creates_business_and_home_customers(self):
+        call_command("seed_demo", password="demo-pass-123", stdout=StringIO())
+        User = get_user_model()
+
+        self.assertEqual(roles.role_of(User.objects.get(username="sam.taylor")), roles.ORG_MANAGER)
+        self.assertEqual(
+            str(roles.organisation_of(User.objects.get(username="casey.nguyen"))),
+            "Northside Dental Clinic",
+        )
+        self.assertIsNone(roles.organisation_of(User.objects.get(username="alex.chen")))
+        self.assertEqual(Organisation.objects.count(), 2)
+        self.assertTrue(Ticket.objects.filter(organisation__isnull=True).exists())
+        self.assertEqual(
+            Ticket.objects.filter(organisation__name="Harbour Freight Co")
+            .exclude(requester__username="dana.kim")
+            .count(),
+            0,
+        )
 
     def test_generates_and_prints_a_password_when_none_is_given(self):
         out = StringIO()

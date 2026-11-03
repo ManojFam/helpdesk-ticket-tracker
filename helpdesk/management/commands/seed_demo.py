@@ -15,17 +15,25 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
-from helpdesk.models import Article, Category, Comment, Ticket
+from helpdesk.models import Article, Category, Comment, Organisation, Ticket
 
-# username, first name, last name, is_staff, is_superuser
+# TechCare's business customers (fictional).
+ORGANISATIONS = {
+    "Northside Dental Clinic": "12 Example Street, Northside VIC",
+    "Harbour Freight Co": "8 Sample Road, Port Example VIC",
+}
+
+# username, first name, last name, is_staff, is_superuser, organisation, is_org_manager
 USERS = [
-    ("helpdesk.admin", "Helpdesk", "Admin", True, True),
-    ("jordan.lee", "Jordan", "Lee", True, False),
-    ("riley.morgan", "Riley", "Morgan", True, False),
-    ("sam.taylor", "Sam", "Taylor", False, False),
-    ("casey.nguyen", "Casey", "Nguyen", False, False),
-    ("alex.chen", "Alex", "Chen", False, False),
+    ("helpdesk.admin", "Helpdesk", "Admin", True, True, None, False),
+    ("jordan.lee", "Jordan", "Lee", True, False, None, False),
+    ("riley.morgan", "Riley", "Morgan", True, False, None, False),
+    ("sam.taylor", "Sam", "Taylor", False, False, "Northside Dental Clinic", True),
+    ("casey.nguyen", "Casey", "Nguyen", False, False, "Northside Dental Clinic", False),
+    ("dana.kim", "Dana", "Kim", False, False, "Harbour Freight Co", True),
+    ("alex.chen", "Alex", "Chen", False, False, None, False),  # home customer
 ]
+CUSTOMERS = ["sam.taylor", "casey.nguyen", "dana.kim", "alex.chen"]
 
 CATEGORIES = [
     "Accounts & access",
@@ -141,7 +149,7 @@ ARTICLES = [
 # assignee, requester. Ages are chosen so every SLA state shows up on the dashboard.
 TICKETS = [
     (
-        "Wi-Fi down for everyone in Building B",
+        "Wi-Fi down for everyone at the clinic",
         "Network & Wi-Fi",
         1,
         5,
@@ -152,7 +160,7 @@ TICKETS = [
         "sam.taylor",
     ),
     (
-        "Student system not loading for anyone",
+        "Patient booking system not loading",
         "Software",
         1,
         3.3,
@@ -163,7 +171,7 @@ TICKETS = [
         "casey.nguyen",
     ),
     (
-        "Projector in Room 204 not detecting laptops",
+        "Boardroom screen not detecting laptops",
         "Hardware",
         2,
         2,
@@ -171,7 +179,7 @@ TICKETS = [
         None,
         None,
         None,
-        "alex.chen",
+        "dana.kim",
     ),
     (
         "S: drive missing after password change",
@@ -207,7 +215,7 @@ TICKETS = [
         "alex.chen",
     ),
     (
-        "Level 2 printer printing blank pages",
+        "Front desk printer printing blank pages",
         "Printing",
         3,
         30,
@@ -218,7 +226,7 @@ TICKETS = [
         "sam.taylor",
     ),
     (
-        "Access to the Finance shared mailbox",
+        "Access to the accounts shared mailbox",
         "Accounts & access",
         3,
         1,
@@ -226,9 +234,9 @@ TICKETS = [
         None,
         None,
         None,
-        "casey.nguyen",
+        "dana.kim",
     ),
-    ("Second monitor for my desk", "Hardware", 4, 10, "new", None, None, None, "alex.chen"),
+    ("Second monitor for my home office", "Hardware", 4, 10, "new", None, None, None, "alex.chen"),
     (
         "Laptop keyboard keys sticking",
         "Hardware",
@@ -252,7 +260,7 @@ TICKETS = [
         "casey.nguyen",
     ),
     (
-        "Install Python 3.13 on the lab PCs",
+        "Set up my new home printer and scanner",
         "Software",
         3,
         70,
@@ -282,7 +290,7 @@ TICKETS = [
         4,
         48,
         "riley.morgan",
-        "casey.nguyen",
+        "dana.kim",
     ),
 ]
 
@@ -317,12 +325,18 @@ class Command(BaseCommand):
             Article.objects.all().delete()
             Category.objects.all().delete()
             User.objects.filter(username__in=[u[0] for u in USERS]).delete()
+            Organisation.objects.filter(name__in=ORGANISATIONS).delete()
         elif Ticket.objects.exists():
             raise CommandError("The database already has tickets. Use --reset to replace them.")
 
+        organisations = {
+            name: Organisation.objects.create(name=name, address=address)
+            for name, address in ORGANISATIONS.items()
+        }
+
         password = options["password"] or secrets.token_urlsafe(12)
         users = {}
-        for username, first, last, is_staff, is_superuser in USERS:
+        for username, first, last, is_staff, is_superuser, org, is_manager in USERS:
             user = User(
                 username=username,
                 first_name=first,
@@ -332,7 +346,10 @@ class Command(BaseCommand):
                 is_superuser=is_superuser,
             )
             user.set_password(password)
-            user.save()
+            user.save()  # the signal creates user.profile
+            user.profile.organisation = organisations.get(org)
+            user.profile.is_org_manager = is_manager
+            user.profile.save()
             users[username] = user
 
         categories = {name: Category.objects.create(name=name) for name in CATEGORIES}
@@ -400,7 +417,7 @@ class Command(BaseCommand):
                 category=categories[category],
                 priority=priority,
                 status=Ticket.Status.CLOSED,
-                requester=users[USERS[3 + days_ago % 3][0]],
+                requester=users[CUSTOMERS[days_ago % len(CUSTOMERS)]],
                 assignee=users["jordan.lee" if days_ago % 2 else "riley.morgan"],
                 created_at=created,
                 resolved_at=created + timedelta(hours=hours_to_fix),
@@ -414,7 +431,8 @@ class Command(BaseCommand):
             )
         )
         self.stdout.write(
-            "Log in as jordan.lee (IT staff), sam.taylor (requester) or helpdesk.admin."
+            "Log in as jordan.lee (technician), sam.taylor (manager at Northside Dental Clinic), "
+            "casey.nguyen (staff at Northside), alex.chen (home customer) or helpdesk.admin."
         )
         if not options["password"]:
             self.stdout.write(f"Password for all demo users: {password}")
