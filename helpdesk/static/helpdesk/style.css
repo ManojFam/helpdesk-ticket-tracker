@@ -47,6 +47,17 @@ button.link { background: none; border: 0; color: #dbe7f5; padding: 0; cursor: p
 .bar-fill.p2 { background: #e8833a; }
 .bar-count { text-align: right; font-weight: 600; }
 .spaced { margin-top: 1.25rem; }
+.badge.bk-requested { background: var(--warn-bg); color: var(--warn); }
+.badge.bk-confirmed { background: #e0ecff; color: #1d4ea8; }
+.badge.bk-completed { background: var(--ok-bg); color: var(--ok); }
+.badge.bk-cancelled { background: var(--bg); color: var(--muted); }
+.booking-form ul { list-style: none; padding: 0; margin: .2rem 0 0; display: flex; gap: 1.25rem; flex-wrap: wrap; }
+.booking-form ul label { font-weight: 400; display: inline; }
+.visit { display: grid; grid-template-columns: 11rem 1fr; gap: .75rem; padding: .6rem 0; border-top: 1px solid var(--line); }
+.visit:first-of-type { border-top: 0; }
+.visit-time { font-weight: 600; }
+button.danger { background: var(--bad); }
+@media (max-width: 600px) { .visit { grid-template-columns: 1fr; } }
 .topbar nav.guest { margin-left: auto; }
 main.auth { max-width: 460px; padding-top: 2.5rem; }
 main.auth .card form p input:not([type=checkbox]) { width: 100%; }

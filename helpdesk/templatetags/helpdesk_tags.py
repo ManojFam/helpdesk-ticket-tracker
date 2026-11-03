@@ -54,6 +54,13 @@ def role_label(user):
 
 
 @register.simple_tag
+def booking_badge(booking):
+    return format_html(
+        '<span class="badge bk-{}">{}</span>', booking.status, booking.get_status_display()
+    )
+
+
+@register.simple_tag
 def priority_badge(ticket):
     return format_html(
         '<span class="badge p{}">{}</span>', ticket.priority, ticket.get_priority_display()

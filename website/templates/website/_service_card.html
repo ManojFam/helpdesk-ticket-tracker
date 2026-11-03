@@ -6,4 +6,7 @@
   </p>
   <p>{% if show_description and service.description %}{{ service.description }}{% else %}{{ service.summary }}{% endif %}</p>
   <p class="price">{{ service.price_label }}</p>
+  {% if service.delivery != "remote" %}
+    <a class="book" href="{% url 'booking_create' %}?service={{ service.slug }}">Book a visit &rarr;</a>
+  {% endif %}
 </article>

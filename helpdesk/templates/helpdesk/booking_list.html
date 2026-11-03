@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load helpdesk_tags %}
+{% block title %}Visits{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Technician visits</h1>
+  <a class="button" href="{% url 'booking_create' %}">Book a visit</a>
+</div>
+
+<form class="filters" method="get">
+  <select name="show">
+    <option value="upcoming" {% if show == "upcoming" %}selected{% endif %}>Upcoming</option>
+    <option value="all" {% if show == "all" %}selected{% endif %}>All visits</option>
+    {% for value, label in statuses %}
+      <option value="{{ value }}" {% if show == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Show</button>
+</form>
+
+{% if visits %}
+<table>
+  <thead>
+    <tr><th>Date</th><th>Service</th>{% if user.is_staff or user|role == "org_manager" %}<th>Customer</th>{% endif %}<th>Address</th><th>Technician</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+  {% for visit in visits %}
+    <tr>
+      <td><a href="{{ visit.get_absolute_url }}">{{ visit.visit_date|date:"D j M" }}</a><div class="muted small">{{ visit.get_time_slot_display }}</div></td>
+      <td>{{ visit.service }}</td>
+      {% if user.is_staff or user|role == "org_manager" %}
+        <td>{{ visit.ticket.requester|person }}<div class="muted small">{{ visit.ticket.organisation|default:"Home customer" }}</div></td>
+      {% endif %}
+      <td>{{ visit.address }}</td>
+      <td>{{ visit.technician|person:"Not assigned yet" }}</td>
+      <td>{% booking_badge visit %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <p class="muted">No visits to show. Need someone on site? <a href="{% url 'booking_create' %}">Book a visit</a>.</p>
+{% endif %}
+{% endblock %}

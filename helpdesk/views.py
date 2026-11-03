@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 
 from helpdesk import roles, sla
 from helpdesk.forms import CommentForm, TicketCreateForm, TicketUpdateForm
-from helpdesk.models import Article, Organisation, Ticket
+from helpdesk.models import Article, Booking, Organisation, Ticket
 from helpdesk.permissions import staff_required
 
 
@@ -71,6 +71,10 @@ def dashboard(request):
         "by_priority": by_priority,
         "by_status": by_status,
         "by_organisation": open_by_organisation(open_tickets),
+        "visits_to_confirm": Booking.objects.filter(status=Booking.Status.REQUESTED).count(),
+        "visits_today": Booking.objects.filter(
+            status=Booking.Status.CONFIRMED, visit_date=timezone.localdate()
+        ).count(),
         "needs_attention": needs_attention[:10],
     }
     return render(request, "helpdesk/dashboard.html", context)
@@ -172,6 +176,7 @@ def ticket_detail(request, pk):
     related_articles = Article.objects.filter(is_published=True, category=ticket.category)[:3]
     context = {
         "ticket": ticket,
+        "booking": getattr(ticket, "booking", None),
         "comments": comments,
         "comment_form": CommentForm(user=request.user),
         "update_form": TicketUpdateForm(instance=ticket) if request.user.is_staff else None,

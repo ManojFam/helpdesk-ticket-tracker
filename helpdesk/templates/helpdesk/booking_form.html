@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Book a visit{% endblock %}
+{% block content %}
+<div class="columns wide-left">
+  <section class="card">
+    <h1>Book a technician visit</h1>
+    <p class="muted">Choose a day and a morning or afternoon slot. We'll confirm the time and
+      who's coming, and you can follow everything on the ticket.</p>
+    <form method="post" class="booking-form">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Request visit</button>
+    </form>
+  </section>
+  <aside class="card">
+    <h2>Good to know</h2>
+    <ul>
+      <li>Visits are Monday to Saturday, from tomorrow up to 60 days ahead.</li>
+      <li>Morning visits arrive between 8am and 12pm, afternoon visits between 12pm and 5pm.</li>
+      <li>Prices start from the amount shown. We confirm the price before any work starts.</li>
+      <li>Can't make it? Cancel online up to the day before.</li>
+    </ul>
+    <p class="muted small">Problem with software or an account? A
+      <a href="{% url 'ticket_create' %}">ticket</a> is often faster: most fixes can be done remotely.</p>
+  </aside>
+</div>
+{% endblock %}

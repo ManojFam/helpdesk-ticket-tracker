@@ -1,7 +1,8 @@
 from django import forms
 from django.contrib.auth import get_user_model
 
-from helpdesk.models import Comment, Ticket
+from helpdesk import bookings
+from helpdesk.models import Booking, Comment, Ticket
 from helpdesk.sla import SLA_TARGETS
 
 
@@ -35,12 +36,108 @@ class TicketUpdateForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["assignee"].queryset = (
-            get_user_model()
-            .objects.filter(is_staff=True, is_active=True)
-            .order_by("first_name", "username")
+        _staff_choices(self.fields["assignee"])
+
+
+class ISODateInput(forms.DateInput):
+    """A browser date picker. Browsers only accept dates as 2026-11-05, while Django would
+    format them for the site's language (05/11/2026), which the picker silently discards."""
+
+    input_type = "date"
+
+    def __init__(self, attrs=None):
+        super().__init__(attrs=attrs, format="%Y-%m-%d")
+
+
+def _staff_choices(field):
+    field.queryset = (
+        get_user_model()
+        .objects.filter(is_staff=True, is_active=True)
+        .order_by("first_name", "username")
+    )
+    field.label_from_instance = lambda u: u.get_full_name() or u.username
+
+
+class BookingRequestForm(forms.ModelForm):
+    """A customer asks for a technician visit. The rules (which services, which dates) come
+    from helpdesk/bookings.py."""
+
+    problem = forms.CharField(
+        label="What do you need help with?",
+        widget=forms.Textarea(attrs={"rows": 4}),
+        help_text="e.g. 'Set up our new printer and connect it to three laptops'.",
+    )
+
+    class Meta:
+        model = Booking
+        fields = ["service", "visit_date", "time_slot", "address", "contact_phone", "notes"]
+        widgets = {
+            "visit_date": ISODateInput(),
+            "time_slot": forms.RadioSelect,
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }
+        labels = {"visit_date": "Preferred date", "time_slot": "Preferred time"}
+
+    field_order = [
+        "service",
+        "problem",
+        "visit_date",
+        "time_slot",
+        "address",
+        "contact_phone",
+        "notes",
+    ]
+
+    def __init__(self, *args, user, today, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.today = today
+        self.fields["service"].queryset = bookings.bookable_services(user)
+        self.fields["service"].label_from_instance = lambda s: f"{s.name} ({s.price_label})"
+        self.fields["service"].empty_label = "Choose a service"
+        self.fields["time_slot"].choices = Booking.Slot.choices  # no blank "Select an option"
+        # Lets the browser's date picker grey out dates that can't be booked.
+        self.fields["visit_date"].widget.attrs.update(
+            min=bookings.earliest_visit_date(today).isoformat(),
+            max=bookings.latest_visit_date(today).isoformat(),
         )
-        self.fields["assignee"].label_from_instance = lambda u: u.get_full_name() or u.username
+
+    def clean_visit_date(self):
+        visit_date = self.cleaned_data["visit_date"]
+        bookings.check_visit_date(visit_date, self.today)
+        return visit_date
+
+
+class BookingConfirmForm(forms.ModelForm):
+    """Staff choose the technician and settle the date and slot."""
+
+    class Meta:
+        model = Booking
+        fields = ["technician", "visit_date", "time_slot"]
+        widgets = {"visit_date": ISODateInput()}
+
+    def __init__(self, *args, today, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.today = today
+        self.fields["technician"].required = True
+        _staff_choices(self.fields["technician"])
+
+    def clean(self):
+        cleaned = super().clean()
+        technician = cleaned.get("technician")
+        visit_date = cleaned.get("visit_date")
+        time_slot = cleaned.get("time_slot")
+        if visit_date and visit_date < self.today:
+            self.add_error("visit_date", "The visit date can't be in the past.")
+        if (
+            technician
+            and visit_date
+            and time_slot
+            and not bookings.technician_is_free(
+                technician, visit_date, time_slot, exclude_booking=self.instance
+            )
+        ):
+            self.add_error("technician", "This technician already has a visit in that slot.")
+        return cleaned
 
 
 class SignupDetailsForm(forms.Form):

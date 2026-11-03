@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load helpdesk_tags %}
+{% block title %}Schedule{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{% if technician == user %}My schedule{% else %}Schedule: {{ technician|person }}{% endif %}</h1>
+  <form class="filters" method="get">
+    <select name="technician" aria-label="Technician">
+      {% for tech in technicians %}
+        <option value="{{ tech.pk }}" {% if tech == technician %}selected{% endif %}>{{ tech|person }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Show</button>
+  </form>
+</div>
+<p class="muted">Confirmed visits for the next two weeks.</p>
+
+{% for day, visits in days %}
+  <section class="card">
+    <h2>{{ day|date:"l j F" }}</h2>
+    {% for visit in visits %}
+      <div class="visit">
+        <div class="visit-time">{{ visit.get_time_slot_display }}</div>
+        <div>
+          <a href="{{ visit.get_absolute_url }}"><strong>{{ visit.service }}</strong></a>
+          &middot; {{ visit.ticket.requester|person }}, {{ visit.ticket.organisation|default:"home customer" }}<br>
+          {{ visit.address }} &middot; {{ visit.contact_phone }}
+          {% if visit.notes %}<div class="muted small">Access: {{ visit.notes }}</div>{% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </section>
+{% empty %}
+  <p class="muted">No confirmed visits in the next two weeks.</p>
+{% endfor %}
+{% endblock %}

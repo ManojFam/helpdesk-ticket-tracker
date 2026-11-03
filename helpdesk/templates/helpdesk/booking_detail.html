@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load helpdesk_tags %}
+{% block title %}Visit {{ booking.visit_date|date:"j M" }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'booking_list' %}">&larr; Visits</a></p>
+<h1>{{ booking.service }}</h1>
+
+<div class="columns wide-left">
+  <section class="card">
+    <dl class="details">
+      <dt>Status</dt><dd>{% booking_badge booking %}</dd>
+      <dt>Date</dt><dd>{{ booking.visit_date|date:"l j F Y" }}</dd>
+      <dt>Time</dt><dd>{{ booking.get_time_slot_display }}</dd>
+      <dt>Technician</dt><dd>{{ booking.technician|person:"Not assigned yet" }}</dd>
+      <dt>Address</dt><dd>{{ booking.address }}</dd>
+      <dt>Phone</dt><dd>{{ booking.contact_phone }}</dd>
+      {% if booking.notes %}<dt>Access notes</dt><dd>{{ booking.notes }}</dd>{% endif %}
+      <dt>Customer</dt><dd>{{ booking.requester|person }} &middot; {{ booking.ticket.organisation|default:"Home customer" }}</dd>
+      <dt>Price</dt><dd>{{ booking.service.price_label }}</dd>
+      <dt>Ticket</dt><dd><a href="{{ booking.ticket.get_absolute_url }}">#{{ booking.ticket.pk }} {{ booking.ticket.title }}</a></dd>
+    </dl>
+    <p class="muted small">Updates and messages about this visit are on the ticket.</p>
+  </section>
+
+  <aside>
+    {% if confirm_form %}
+      <section class="card">
+        <h2>{% if booking.status == "confirmed" %}Change the visit{% else %}Confirm the visit{% endif %}</h2>
+        <form method="post" action="{% url 'booking_confirm' booking.pk %}">
+          {% csrf_token %}
+          {{ confirm_form.as_p }}
+          <button type="submit">{% if booking.status == "confirmed" %}Save changes{% else %}Confirm visit{% endif %}</button>
+        </form>
+      </section>
+    {% endif %}
+
+    {% if can_complete %}
+      <section class="card">
+        <h2>After the visit</h2>
+        <form method="post" action="{% url 'booking_complete' booking.pk %}">
+          {% csrf_token %}
+          <p><label for="summary">What was done (optional)</label>
+            <textarea id="summary" name="summary" rows="3"></textarea></p>
+          <button type="submit">Mark as completed</button>
+        </form>
+      </section>
+    {% endif %}
+
+    {% if can_cancel %}
+      <section class="card">
+        <h2>Cancel the visit</h2>
+        <form method="post" action="{% url 'booking_cancel' booking.pk %}">
+          {% csrf_token %}
+          <p><label for="reason">Reason (optional)</label>
+            <input id="reason" name="reason" maxlength="200"></p>
+          <button type="submit" class="danger">Cancel visit</button>
+        </form>
+      </section>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

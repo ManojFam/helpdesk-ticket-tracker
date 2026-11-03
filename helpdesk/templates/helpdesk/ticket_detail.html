@@ -49,6 +49,16 @@
       </dl>
     </section>
 
+    {% if booking %}
+      <section class="card">
+        <h2>On-site visit</h2>
+        <p>{% booking_badge booking %}</p>
+        <p>{{ booking.visit_date|date:"D j M Y" }}, {{ booking.get_time_slot_display }}<br>
+          {{ booking.technician|person:"Technician not assigned yet" }}</p>
+        <p><a href="{{ booking.get_absolute_url }}">Visit details &rarr;</a></p>
+      </section>
+    {% endif %}
+
     {% if update_form %}
       <section class="card">
         <h2>Update</h2>

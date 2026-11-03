@@ -11,6 +11,8 @@
   <a class="stat" href="{% url 'ticket_list' %}?assigned=none"><strong>{{ unassigned_count }}</strong>Unassigned</a>
   <div class="stat"><strong>{{ awaiting_response_count }}</strong>Awaiting first reply</div>
   <a class="stat" href="{% url 'ticket_list' %}?assigned=me"><strong>{{ my_open_count }}</strong>Assigned to me</a>
+  <a class="stat warning" href="{% url 'booking_list' %}?show=requested"><strong>{{ visits_to_confirm }}</strong>Visits to confirm</a>
+  <a class="stat" href="{% url 'schedule' %}"><strong>{{ visits_today }}</strong>Visits today</a>
 </section>
 
 <div class="columns">
