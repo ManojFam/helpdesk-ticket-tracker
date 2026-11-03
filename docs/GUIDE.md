@@ -111,6 +111,22 @@ The demo has these people (all fictional):
     **TechCare Services** in the portal header to go back to the website. The new price is
     already there.
 
+**Technician visits:**
+
+11. **Log in as `alex.chen`** (home customer) and open **Visits**: Alex has a *Requested*
+    Wi-Fi visit, a *Completed* clean-up and nothing else. Click **Book a visit**. The service
+    list only shows on-site services for homes. Try today's date (refused), a Sunday (refused),
+    then a weekday next week. You land on the visit, and a ticket was created with it.
+12. **Log in as `jordan.lee`.** The dashboard shows *Visits to confirm*. Open Alex's visit,
+    choose a technician and a slot, and click **Confirm visit**. Open the visit's ticket: a
+    public comment says when and who, and the first-response clock has stopped.
+13. Try confirming another visit for the **same technician, day and slot**: it's refused
+    ("already has a visit in that slot").
+14. Open **My schedule**: Jordan's confirmed visits for the next two weeks, with address,
+    phone and access notes. Pick another technician from the list to see theirs.
+15. On a confirmed visit, click **Mark as completed**: the visit is completed and its ticket
+    resolved.
+
 ## 3. How a Django app fits together
 
 Django splits a web app into a few kinds of file. Every page in this app goes through the
@@ -159,7 +175,9 @@ helpdesk/
   roles.py                who is admin / technician / organisation manager / customer
   models.py               Organisation, Profile, Service, Category, Ticket, Comment, Article
   signals.py              creates a Profile whenever a user is created
-  views.py                one function per page
+  views.py                one function per page (tickets, dashboard, knowledge base)
+  bookings.py             the rules for visits: dates, services, double-booking, status changes
+  booking_views.py        the visit pages (request, list, detail, confirm, complete, cancel, schedule)
   urls.py                 the addresses of those pages
   forms.py                new ticket, update ticket, add comment, sign-up extra fields
   accounts.py             trust_email() for TechCare-created accounts, display_name()
@@ -172,7 +190,8 @@ helpdesk/
     account/              our versions of allauth's pages: login.html, signup.html,
                           _google_button.html, email/ (the verification email text)
     allauth/layouts/base.html   makes allauth's other pages use base.html
-    helpdesk/*.html       dashboard, ticket list/detail/form, knowledge base
+    helpdesk/*.html       dashboard, ticket list/detail/form, knowledge base,
+                          booking_list/form/detail, schedule
   static/helpdesk/style.css   the only stylesheet
   management/commands/seed_demo.py   fills the database with demo data
   migrations/
@@ -180,6 +199,7 @@ helpdesk/
     0002_organisations_and_profiles.py   adds Organisation, Profile, Ticket.organisation
     0003_create_missing_profiles.py      gives users who already existed a profile
     0004_services.py                     adds the Service price list
+    0005_bookings.py                     adds Booking and its double-booking constraint
   tests/                  automatic tests (section 10)
 website/                  the public TechCare website (no models)
   views.py                home page and services page
@@ -272,6 +292,21 @@ TechCare staff can see.
 | `is_active` | Untick to hide it from the website without deleting it |
 | `sort_order` | Lower numbers are shown first |
 
+**Booking** is a request for a technician visit. Every booking belongs to exactly one ticket
+(`OneToOneField`):
+
+| Field | Meaning |
+|---|---|
+| `ticket` | The ticket created with it. The conversation and SLA timers live there |
+| `service` | Which on-site service. Remote-only services can't be chosen |
+| `address`, `contact_phone`, `notes` | Where to go, who to call, access notes ("parking at the rear") |
+| `visit_date`, `time_slot` | The day, and `morning` (8am-12pm) or `afternoon` (12pm-5pm) |
+| `status` | `requested`, `confirmed`, `completed` or `cancelled` |
+| `technician` | The TechCare technician going (set when confirmed) |
+
+A **database constraint** (`one_confirmed_visit_per_technician_slot`) makes it impossible
+to store two *confirmed* visits for the same technician, day and slot.
+
 `TicketQuerySet` in `models.py` adds two shortcuts used everywhere:
 
 - `Ticket.objects.open()`: tickets that are New, In progress or Waiting
@@ -342,6 +377,11 @@ hours), and they don't pause while waiting on the requester.
 | Write or see internal notes | - | no | no | yes |
 | Change status, priority or assignee | login page | **403** | **403** | yes |
 | Knowledge base | login page | published articles | published articles | published articles |
+| Book a visit | login page | yes, on-site services for their customer type | yes | yes, any on-site service |
+| See visits | login page | own only | own + organisation's | all |
+| Confirm, change or complete a visit | login page | **403** | **403** | yes |
+| Cancel a visit | login page | own, until the day before | own + organisation's, until the day before | any open visit |
+| My schedule | login page | **403** | **403** | yes |
 | Django admin | login page | no | no | admin only |
 
 Roles are worked out in **one function**, `roles.role_of(user)`. Templates use it through
@@ -418,13 +458,13 @@ database queries.
 
 ## 10. Tests and CI
 
-Run all 94 tests:
+Run all 122 tests:
 
 ```bash
 python manage.py test
 ```
 
-You should see `Ran 94 tests ... OK`. Each test creates its own empty test database, so
+You should see `Ran 122 tests ... OK`. Each test creates its own empty test database, so
 your real data is never touched.
 
 | File | What it checks |
@@ -432,6 +472,7 @@ your real data is never touched.
 | `tests/test_sla.py` | Every SLA rule and boundary (exactly 25% left, exactly at the deadline, ...) and the "2h 15m left" text |
 | `tests/test_models.py` | Deadlines on create and on priority change, resolved/reopened, first-response rules, `open()` and `visible_to()` |
 | `tests/test_views.py` | Login redirects, 403/404 rules, raising/updating/commenting, internal-note privacy, list filters and order, dashboard counts, knowledge-base search |
+| `tests/test_bookings.py` | Date rules (tomorrow to 60 days, no Sundays), which services each customer type can book, requesting a visit creates its ticket, visibility (404 for other customers, managers see colleagues'), customers can't confirm or complete, confirming assigns and comments, **no double-booking** (form and database), completing resolves the ticket, cancelling rules, the schedule, dashboard counts, the date shown in the format browsers need, and the website's *Book a visit* links |
 | `tests/test_accounts.py` | Sign-up makes a home customer and sends a branded verification email, no login before confirming, confirming logs in, sign-up can't make staff or join an organisation, existing emails aren't revealed, weak passwords refused, login by username or email, logout, password reset, trusted emails for admin-created users, the Google button only when configured and that it redirects to Google |
 | `tests/test_organisations.py` | Profiles are created automatically, the four roles, which tickets each role can see/open/comment on, managers still blocked from staff pages, staff filter by customer, dashboard per-customer counts, admin pages |
 | `tests/test_seed_demo.py` | The demo data covers every SLA state, every customer type and the price list, the password option, and refusing to seed twice |
@@ -518,6 +559,14 @@ organisation empty.
 
 **Turn on "Sign in with Google":** follow [GOOGLE_SIGN_IN.md](GOOGLE_SIGN_IN.md).
 
+**Confirm a technician visit:** Dashboard, then *Visits to confirm* (or *Visits*, then
+*Requested*). Open the visit, choose the technician, check the date and slot, and click
+*Confirm visit*. The customer sees the confirmation as a comment on their ticket. To move a
+confirmed visit, change the date or slot in the same box and click *Save changes*.
+
+**Change the booking rules** (how far ahead, no Sundays): the constants at the top of
+`helpdesk/bookings.py`, then the tests in `tests/test_bookings.py`.
+
 **See the emails the app sends** (verification, password reset): they're printed in the
 terminal running `runserver`.
 
@@ -552,7 +601,7 @@ It's the customer portal for an IT services company, built in Django. Business a
 customers raise tickets, technicians work them against SLA targets per priority, there's a
 knowledge base for self-service and a dashboard that shows what's breached or at risk.
 Home customers sign up themselves with email or Google. It has four roles, from customer
-up to admin, 94 automated tests and CI on GitHub. There's also a public website that
+up to admin, on-site visit booking with a technician schedule, 122 automated tests and CI on GitHub. There's also a public website that
 reads its prices and response times from the same data the portal uses.
 
 **"How do the SLA timers work?"**
@@ -593,6 +642,17 @@ always home customers: the form has no organisation or staff fields, and there's
 tries to sneak them in. Business accounts are created by TechCare, and because staff typed the
 address, it's trusted without a verification email.
 
+**"How do you stop a technician being booked twice?"**
+In two layers. The confirm form checks whether that technician already has a confirmed visit in
+that slot and shows a friendly error. Underneath, a partial unique constraint in the database
+(technician + date + slot, only for confirmed visits) means even a bug or a second request
+arriving at the same moment can't store a double booking. There's a test for each layer.
+
+**"Why does a booking create a ticket?"**
+So I didn't build a second messaging system. The ticket already has the conversation, the SLA
+timers and the permission rules. Bookings even reuse the ticket's `visible_to()` rule. Creating
+both happens in one database transaction, so you never get a booking without a ticket.
+
 **"What would you add next?"**
 Business-hours SLAs, pausing the clock while waiting on the customer, email notifications,
 self sign-up and on-site bookings. Most of that is on the roadmap below.
@@ -625,6 +685,9 @@ service-operation ideas.
 | **Email verification** | Proving you own an address by clicking a link sent to it |
 | **Account enumeration** | Finding out which emails have accounts by watching how a form responds. allauth's pages respond the same either way |
 | **Rate limiting** | Refusing too many attempts in a short time, e.g. password guessing |
+| **Database constraint** | A rule the database itself enforces, e.g. "unique". It holds even if application code has a bug |
+| **Partial (conditional) unique constraint** | Unique only for rows that match a condition, here only *confirmed* visits |
+| **Transaction** | Several database changes that all happen or none do (`transaction.atomic`) |
 
 ## 15. Roadmap: TechCare Services
 
@@ -635,8 +698,7 @@ customer portal, one feature at a time, each with tests and an update to this gu
 1. ~~**Organisations and roles.**~~ **Done.** See [16.1](#161-feature-1-organisations-and-roles).
 2. ~~**Company website.**~~ **Done.** See [16.2](#162-feature-2-the-techcare-website).
 3. ~~**Self sign-up.**~~ **Done.** See [16.3](#163-feature-3-self-sign-up-with-email-or-google).
-4. **Book a technician visit.** Choose a service, an address and a time slot. Technicians
-   see their schedule.
+4. ~~**Book a technician visit.**~~ **Done.** See [16.4](#164-feature-4-booking-a-technician-visit).
 5. **Service charges.** A price list and a quote on every booking. No real payments.
 6. **Help assistant.** It answers questions from the knowledge base. If that doesn't help,
    the conversation becomes a ticket or a booking. A real AI model can be plugged in later.
@@ -811,3 +873,65 @@ accounts are still created by TechCare.
 
 **How to check it yourself:** the sign-up steps at the start of
 [section 2](#2-try-it-in-5-minutes). For Google, follow [GOOGLE_SIGN_IN.md](GOOGLE_SIGN_IN.md).
+
+### 16.4 Feature 4: Booking a technician visit
+
+**Goal.** Customers can ask for a technician to come on site: choose a service, describe the
+job, pick a day and a morning or afternoon slot. TechCare confirms it with a technician, and
+each technician has a schedule. Afterwards the visit is marked completed.
+
+**What changed**
+
+| File | Change |
+|---|---|
+| `helpdesk/models.py` | New `Booking` model, one-to-one with `Ticket`, with a partial unique constraint against double-booking. `BookingQuerySet.visible_to()` and `upcoming()` |
+| `migrations/0005_bookings.py` | Creates the table and the constraint |
+| `helpdesk/bookings.py` (new) | The rules: allowed dates, which services each customer can book, `technician_is_free()`, and the actions `request_visit`, `confirm_visit`, `complete_visit`, `cancel_visit`, plus `schedule_for` |
+| `helpdesk/booking_views.py` (new) | The visit pages. They check who is asking, then call `bookings.py` |
+| `helpdesk/forms.py` | `BookingRequestForm`, `BookingConfirmForm` and `ISODateInput` (a date picker that keeps its value) |
+| `helpdesk/urls.py` | `/portal/bookings/...` and `/portal/schedule/` |
+| templates | Visits list, booking form, visit page (confirm, complete and cancel boxes), schedule, a visit card on the ticket page, *Visits* and *My schedule* in the menu, two dashboard cards |
+| `website/.../_service_card.html` | *Book a visit* on every on-site service |
+| `seed_demo.py` | Six demo visits in every status, created through `bookings.py` |
+| `tests/test_bookings.py` (new) | 28 tests (section 10) |
+
+**Decisions and why**
+
+1. **Every booking has a ticket.** The ticket already provides the conversation, SLA timers,
+   assignment and permissions, so a booking only stores what's specific to a visit (where,
+   when, who). Bookings reuse the ticket's visibility rule:
+   `Booking.objects.visible_to(user)` is "bookings whose ticket you can see", so the
+   permission logic still lives in one place.
+2. **Rules in `bookings.py`, not in views.** Just like `sla.py`, the business rules are plain
+   functions. The views, the seed command and the tests all call the same `confirm_visit()`,
+   so every confirmation assigns the ticket, moves it to *In progress* and posts the same
+   comment, whoever triggers it.
+3. **Two layers against double-booking.** The form gives a friendly message. The database
+   constraint is the safety net that can't be bypassed, not by a bug and not by two staff
+   clicking *Confirm* at the same moment.
+4. **Transactions.** `request_visit()` creates the ticket and the booking inside
+   `transaction.atomic`, so if anything fails neither is saved. The other actions do the same
+   for their booking change and ticket comment.
+5. **Status changes are explicit actions** (`confirm`, `complete`, `cancel`) that check the
+   current status and raise `BookingError` if the move isn't allowed (you can't complete a
+   visit that was never confirmed). The UI only shows the buttons that are allowed.
+6. **Customer-friendly limits.** Visits run from tomorrow up to 60 days ahead, Monday to
+   Saturday, in two half-day slots. Customers can cancel online until the day before, and
+   staff can cancel any time. A cancelled visit leaves its ticket open, because the problem may
+   still need fixing another way.
+7. **The right services for the right customer.** Home customers only see home and shared
+   on-site services, business customers only business and shared ones, and remote-only
+   services can't be booked for a visit. The form's list comes from `bookable_services()`,
+   so a hand-made request for another service fails validation.
+8. **Completing a visit resolves its ticket**, because for a visit "the technician came and
+   fixed it" is the resolution. Staff can still reopen the ticket if needed.
+9. **Fictional phone numbers.** The demo uses `0491 570 156`-`159`, numbers the Australian
+   regulator (ACMA) sets aside for fiction, so they can't reach a real person.
+
+**A bug the screenshots caught.** The first version of the staff form showed an empty date.
+Django formatted the date the Australian way (`05/11/2026`), but a browser's date picker only
+accepts `2026-11-05`, so it quietly dropped the value. Saving would have blanked the date.
+`ISODateInput` always renders ISO dates, and a test now checks the value is there.
+
+**How to check it yourself:** steps 11 to 15 of the demo script in
+[section 2](#2-try-it-in-5-minutes).

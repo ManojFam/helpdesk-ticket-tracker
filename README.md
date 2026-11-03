@@ -23,6 +23,9 @@ file, the data model, the SLA rules, permissions, a demo script and interview ta
 - **Self sign-up** for home customers, with email and password or **Sign in with Google**
   (django-allauth). The email must be verified before the first login. Business customers'
   accounts are created by TechCare in the admin.
+- **On-site visits.** Customers book a technician for a service, day and morning or afternoon
+  slot. Staff confirm it with a technician (who can't be double-booked), each technician has
+  a **My schedule** page, and completing the visit resolves its ticket.
 - **Tickets** have a priority (P1 to P4), a status (New, In progress, Waiting on requester,
   Resolved, Closed), a category and an assignee. The conversation thread supports
   **internal notes** that only TechCare staff can see.
@@ -63,6 +66,12 @@ Creating a home customer account (the verification email is printed in the serve
 during development):
 
 ![Sign up](docs/signup.png)
+
+Booking a visit, and a technician's schedule:
+
+| Book a visit (customer) | My schedule (technician) |
+|---|---|
+| ![Book a visit](docs/booking-form.png) | ![Schedule](docs/schedule.png) |
 
 Knowledge base search, as a customer sees it:
 
@@ -116,6 +125,8 @@ helpdesk/            the portal and all the data:
   roles.py           admin / technician / organisation manager / customer, in one place
   models.py          Organisation, Profile, Service, Category, Ticket, Comment, Article
   signals.py         creates a profile for every new user
+  bookings.py        technician visit rules: dates, services, double-booking, status changes
+  booking_views.py   the visit pages and the technician schedule
   views.py           dashboard, ticket list/detail/create, comments, updates, knowledge base
   forms.py           ticket, update and comment forms
   permissions.py     staff_required decorator
@@ -157,6 +168,9 @@ Design choices:
   of its own: services are rows an admin edits, and the response-time table is generated from
   `sla.py`, so the published promise always matches what the portal measures. The portal
   sits under `/portal/`. Every link uses a named URL, so moving it was a one-line change.
+- **Visits reuse tickets.** Each booking has its own ticket (conversation, SLA and permissions
+  come for free), and the rules live in `bookings.py`. Double-booking a technician is stopped
+  twice: by the form, and by a partial unique constraint in the database that can't be bypassed.
 - **Accounts use django-allauth, not home-made login code.** Self sign-ups must verify their
   email before logging in, logins and emails are rate-limited, and the forms never reveal
   whether an address is registered. Accounts created by TechCare staff are trusted
@@ -174,9 +188,9 @@ python manage.py test
 ruff check . && ruff format --check .
 ```
 
-There are 94 tests. They cover every SLA rule and boundary, due dates and priority changes,
+There are 122 tests. They cover every SLA rule and boundary, due dates and priority changes,
 first-response rules, what each of the four roles can see, comment on or update (including
-one customer never seeing another's tickets), sign-up, email verification and login, internal-note privacy,
+one customer never seeing another's tickets), sign-up, email verification and login, visit booking rules and double-booking, internal-note privacy,
 ticket list filters and ordering, dashboard counts and compliance, knowledge-base search and
 drafts, the public website pages, and the demo seed command. Test runs use a fast password hasher so the suite takes
 under a second. GitHub Actions runs `manage.py check`, a missing-migrations check, ruff and the
