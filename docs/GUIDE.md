@@ -21,6 +21,7 @@ top to bottom once, then use it as a reference.
 13. [Interview talking points](#13-interview-talking-points)
 14. [Glossary](#14-glossary)
 15. [Roadmap: TechCare Services](#15-roadmap-techcare-services)
+16. [How each feature was built](#16-how-each-feature-was-built)
 
 ---
 
@@ -31,16 +32,19 @@ tickets** against time targets (**SLAs**), writes **knowledge-base articles** so
 fix common problems themselves, and watches a **dashboard** that shows what is late or about
 to be late.
 
-There is one website with two kinds of users:
+The app is the customer portal of **TechCare Services**, a fictional IT company that
+supports **business customers** (organisations) and **home customers**. There is one
+website, and what you see depends on your **role**:
 
-| User | What they see |
-|---|---|
-| **Requester** (anyone who is not IT staff) | Their own tickets, a "New ticket" form and the knowledge base |
-| **IT staff** (`is_staff` ticked) | The dashboard, every ticket, the update panel (status, priority, assignee) and internal notes |
-| **Superuser** | All of the above, plus the Django admin at `/admin/` |
+| Role | Who | What they see |
+|---|---|---|
+| **Customer** | Someone at a business customer, or a home customer | Their own tickets, a "New ticket" form and the knowledge base |
+| **Organisation manager** | A customer marked as manager of their organisation | Everything a customer sees, plus **every ticket raised by people in their organisation** |
+| **Technician** | TechCare staff (`is_staff` ticked) | The dashboard, every ticket, the update panel (status, priority, assignee) and internal notes |
+| **Admin** | TechCare staff who are also superusers | All of the above, plus the Django admin at `/admin/` (organisations, users, articles) |
 
-The app is being turned into the customer portal of a fictional IT services company,
-**TechCare Services**. See [section 15](#15-roadmap-techcare-services).
+[Section 15](#15-roadmap-techcare-services) lists the features still to come, and
+[section 16](#16-how-each-feature-was-built) explains how each finished feature was built.
 
 ## 2. Try it in 5 minutes
 
@@ -59,22 +63,37 @@ python manage.py runserver
 
 Open http://127.0.0.1:8000 and follow this script:
 
-1. **Log in as `jordan.lee`** (IT staff). You land on the **dashboard**. Look at
-   *SLA breached* and *SLA at risk*, and at the *Needs attention* list.
-2. Click **#1 Wi-Fi down for everyone in Building B**. On the right, *First response* is
+The demo has these people (all fictional):
+
+| Username | Role |
+|---|---|
+| `jordan.lee`, `riley.morgan` | Technicians |
+| `helpdesk.admin` | Admin |
+| `sam.taylor` | Manager at **Northside Dental Clinic** |
+| `casey.nguyen` | Staff member at **Northside Dental Clinic** |
+| `dana.kim` | Manager at **Harbour Freight Co** |
+| `alex.chen` | Home customer |
+
+1. **Log in as `jordan.lee`** (technician). You land on the **dashboard**. Look at
+   *SLA breached*, *SLA at risk*, *Open tickets by customer* and the *Needs attention* list.
+2. Click **Wi-Fi down for everyone at the clinic**. On the right, *First response* is
    **Met** (Jordan replied quickly) but *Resolution* is **Breached** (P1 tickets have 4
    hours). The yellow comment is an **internal note**.
 3. In **Update**, set *Status* to **Resolved** and click *Save*. The resolution badge now
    says *Breached* without "overdue by": the clock has stopped, too late.
-4. Go to **Tickets**. Try the filters: *Unassigned*, *P1 - Critical*, or search `#3`.
-5. **Log out and log in as `sam.taylor`** (a requester). There is no dashboard, and you only
-   see Sam's tickets. Open one: the internal note is not there.
-6. Click **New ticket**. The page suggests knowledge-base articles. Raise a ticket, then
-   look at its SLA badges.
-7. Open **Knowledge base** and search `wifi`. It finds the "Wi-Fi" article (hyphens are
+4. Go to **Tickets**. Under each title you can see the customer. Try the filters:
+   *Unassigned*, *P1 - Critical*, *Harbour Freight Co*, *Home customers*, or search `#3`.
+5. **Log out and log in as `sam.taylor`** (manager at Northside). The menu says
+   *Organisation tickets*. You see Sam's tickets **and Casey's**, with a *Raised by*
+   column, but nothing from Harbour Freight. Open Casey's ticket: there is no internal note.
+6. **Log in as `casey.nguyen`** (staff at Northside). Casey sees only Casey's own tickets.
+   Try opening one of Sam's, e.g. `/tickets/1/`. You get *Not Found*.
+7. As Casey, click **New ticket**. The page suggests knowledge-base articles. Raise a
+   ticket, then log back in as Sam: the new ticket shows up in Sam's list too.
+8. Open **Knowledge base** and search `wifi`. It finds the "Wi-Fi" article (hyphens are
    ignored).
-8. Try to open a ticket number that belongs to someone else, e.g. `/tickets/2/`.
-   You get *Not Found*.
+9. **Log in as `helpdesk.admin`** and open **Admin**, then *Organisations*, then
+   *Northside Dental Clinic*. You see its members and who the manager is.
 
 ## 3. How a Django app fits together
 
@@ -119,21 +138,26 @@ config/
   wsgi.py                 entry point for a production web server
 helpdesk/
   sla.py                  the SLA rules (no database code at all)
-  models.py               Category, Ticket, Comment, Article
+  roles.py                who is admin / technician / organisation manager / customer
+  models.py               Organisation, Profile, Category, Ticket, Comment, Article
+  signals.py              creates a Profile whenever a user is created
   views.py                one function per page
   urls.py                 the addresses of those pages
   forms.py                new ticket, update ticket, add comment
   permissions.py          @staff_required
-  admin.py                how the models appear in /admin/
+  admin.py                how the models appear in /admin/ (users with their profile)
   templatetags/
-    helpdesk_tags.py      {% sla_badge %}, {% priority_badge %}, |person
+    helpdesk_tags.py      {% sla_badge %}, {% priority_badge %}, |person, |role_label
   templates/
     base.html             header and menu shared by every page
     registration/login.html
     helpdesk/*.html       dashboard, ticket list/detail/form, knowledge base
   static/helpdesk/style.css   the only stylesheet
   management/commands/seed_demo.py   fills the database with demo data
-  migrations/0001_initial.py         creates the tables
+  migrations/
+    0001_initial.py                  creates the first tables
+    0002_organisations_and_profiles.py   adds Organisation, Profile, Ticket.organisation
+    0003_create_missing_profiles.py      gives users who already existed a profile
   tests/                  automatic tests (section 10)
 .github/workflows/ci.yml  GitHub runs the checks on every push
 docs/                     this guide and the screenshots
@@ -141,9 +165,10 @@ docs/                     this guide and the screenshots
 
 ### The files worth reading first
 
-1. **`helpdesk/sla.py`** is short and has no Django in it, so it's the easiest file to read.
-   It holds the business rules.
-2. **`helpdesk/models.py`**, especially `Ticket.save()` and `Ticket.add_comment()`.
+1. **`helpdesk/sla.py`** and **`helpdesk/roles.py`** are short and hold the business rules,
+   so they're the easiest files to start with.
+2. **`helpdesk/models.py`**, especially `TicketQuerySet.visible_to()`, `Ticket.save()` and
+   `Ticket.add_comment()`.
 3. **`helpdesk/views.py`**, especially `ticket_detail` and `ticket_comment`. They show how
    permissions are enforced.
 4. **`helpdesk/templates/helpdesk/ticket_detail.html`**, to see how the data reaches the page.
@@ -152,6 +177,9 @@ docs/                     this guide and the screenshots
 
 ```mermaid
 erDiagram
+    ORGANISATION |o--o{ PROFILE : "has members"
+    USER ||--|| PROFILE : has
+    ORGANISATION |o--o{ TICKET : "owns"
     USER ||--o{ TICKET : "raises (requester)"
     USER |o--o{ TICKET : "works on (assignee)"
     CATEGORY |o--o{ TICKET : groups
@@ -160,7 +188,23 @@ erDiagram
     CATEGORY |o--o{ ARTICLE : groups
 ```
 
-**User** is Django's built-in user table. `is_staff` decides whether someone is IT staff.
+**User** is Django's built-in user table. `is_staff` means "works at TechCare"
+(technician), and `is_staff` plus `is_superuser` means admin.
+
+**Organisation** is a business customer: `name` (unique), `phone`, `address`, and
+`is_active` (untick when they stop being a customer).
+
+**Profile** holds the extra details for each user, one profile per user:
+
+| Field | Meaning |
+|---|---|
+| `user` | The user it belongs to (one-to-one) |
+| `organisation` | Which business customer they work for. Empty for home customers and TechCare staff |
+| `is_org_manager` | Can see every ticket from their organisation. Only allowed when `organisation` is set (`Profile.clean()`) |
+| `phone` | Contact number |
+
+A profile is created automatically for every new user by `signals.py`, so code can always
+use `user.profile`.
 
 **Ticket** (the main table):
 
@@ -168,7 +212,8 @@ erDiagram
 |---|---|
 | `title`, `description` | What the problem is |
 | `requester` | Who raised it. Can't be deleted while they have tickets (`PROTECT`) |
-| `assignee` | IT staff member working on it (optional). Only staff can be chosen |
+| `organisation` | The requester's organisation **at the time the ticket was raised** (set in `Ticket.save()`). Empty for home customers |
+| `assignee` | TechCare technician working on it (optional). Only staff can be chosen |
 | `category` | Hardware, Printing, ... (optional) |
 | `priority` | 1 = P1 Critical, 2 = P2 High, 3 = P3 Medium, 4 = P4 Low |
 | `status` | `new`, `in_progress`, `waiting`, `resolved`, `closed` |
@@ -178,7 +223,7 @@ erDiagram
 | `resolved_at` | When it was resolved. Cleared again if the ticket is reopened |
 
 **Comment** belongs to one ticket. `is_internal = True` makes it an internal note that only
-IT staff can see.
+TechCare staff can see.
 
 **Article** is a knowledge-base page. `is_published = False` keeps it as a hidden draft.
 `slug` is the readable address part, e.g. `/kb/reset-your-password/`.
@@ -188,7 +233,9 @@ IT staff can see.
 `TicketQuerySet` in `models.py` adds two shortcuts used everywhere:
 
 - `Ticket.objects.open()`: tickets that are New, In progress or Waiting
-- `Ticket.objects.visible_to(user)`: every ticket for IT staff, only their own for anyone else
+- `Ticket.objects.visible_to(user)`: every ticket for TechCare staff, the whole
+  organisation's tickets (plus their own) for organisation managers, and only their own for
+  everyone else
 
 ## 6. How the SLA timers work
 
@@ -223,7 +270,7 @@ app follows.
 
 **When the clocks stop:**
 
-- *First response* stops at the first **public** comment by **IT staff** on someone
+- *First response* stops at the first **public** comment by **TechCare staff** on someone
   else's ticket. Internal notes don't count, and neither does the requester commenting on
   their own ticket. See `Ticket.add_comment()`.
 - *Resolution* stops when the status becomes Resolved or Closed (`resolved_at` is set in
@@ -242,18 +289,22 @@ hours), and they don't pause while waiting on the requester.
 
 ## 7. Who can do what
 
-| Action | Not logged in | Requester | IT staff |
-|---|---|---|---|
-| See the dashboard | login page | **403 Forbidden** | yes |
-| List tickets | login page | own tickets only | all, with filters |
-| Open a ticket | login page | own only (**404** otherwise) | all |
-| Raise a ticket | login page | yes | yes |
-| Comment | login page | own tickets only | all |
-| Write an internal note | - | no (the checkbox isn't on their form) | yes |
-| See internal notes | - | no | yes |
-| Change status, priority or assignee | login page | **403** | yes |
-| Knowledge base | login page | published articles | published articles |
-| Django admin | login page | no | superuser only |
+| Action | Not logged in | Customer | Organisation manager | Technician / Admin |
+|---|---|---|---|---|
+| See the dashboard | login page | **403 Forbidden** | **403** | yes |
+| List tickets | login page | own only | own + organisation's, with *Raised by* | all, with customer filter |
+| Open a ticket | login page | own only (**404** otherwise) | own + organisation's (**404** otherwise) | all |
+| Raise a ticket | login page | yes | yes | yes |
+| Comment | login page | own tickets | own + organisation's | all |
+| Write or see internal notes | - | no | no | yes |
+| Change status, priority or assignee | login page | **403** | **403** | yes |
+| Knowledge base | login page | published articles | published articles | published articles |
+| Django admin | login page | no | no | admin only |
+
+Roles are worked out in **one function**, `roles.role_of(user)`. Templates use it through
+the `|role` and `|role_label` filters, and the queryset uses it in `visible_to()`. Rules
+like "a manager flag without an organisation gives no extra access" only need to be right in
+one place.
 
 **How it's enforced, and why it's done this way:**
 
@@ -265,7 +316,8 @@ hours), and they don't pause while waiting on the requester.
   ticket up through `Ticket.objects.visible_to(request.user)`. Hiding a link in the template
   is not security, because anyone can type a URL. Filtering the database query is.
 - **404 instead of 403 for other people's tickets.** A 403 would confirm that ticket #57
-  exists. A 404 reveals nothing.
+  exists. A 404 reveals nothing. That matters more now: one business customer must never
+  learn anything about another's tickets.
 - **Forms only include fields the user may set.** `TicketCreateForm` has no `requester` or
   `status` field, and the view sets `requester = request.user`. Even if someone adds
   `status=closed` to the request by hand, Django ignores it. There's a test for this
@@ -323,13 +375,13 @@ database queries.
 
 ## 10. Tests and CI
 
-Run all 42 tests:
+Run all 66 tests:
 
 ```bash
 python manage.py test
 ```
 
-You should see `Ran 42 tests ... OK`. Each test creates its own empty test database, so
+You should see `Ran 66 tests ... OK`. Each test creates its own empty test database, so
 your real data is never touched.
 
 | File | What it checks |
@@ -337,7 +389,8 @@ your real data is never touched.
 | `tests/test_sla.py` | Every SLA rule and boundary (exactly 25% left, exactly at the deadline, ...) and the "2h 15m left" text |
 | `tests/test_models.py` | Deadlines on create and on priority change, resolved/reopened, first-response rules, `open()` and `visible_to()` |
 | `tests/test_views.py` | Login redirects, 403/404 rules, raising/updating/commenting, internal-note privacy, list filters and order, dashboard counts, knowledge-base search |
-| `tests/test_seed_demo.py` | The demo data covers every SLA state, the password option, and refusing to seed twice |
+| `tests/test_organisations.py` | Profiles are created automatically, the four roles, which tickets each role can see/open/comment on, managers still blocked from staff pages, staff filter by customer, dashboard per-customer counts, admin pages |
+| `tests/test_seed_demo.py` | The demo data covers every SLA state and every customer type, the password option, and refusing to seed twice |
 | `tests/helpers.py` | Small functions the tests share (`make_user`, `make_ticket`) |
 
 Run one file or one test while you work on something:
@@ -389,8 +442,20 @@ database (PostgreSQL) and a production web server. That's out of scope for this 
 python manage.py createsuperuser
 ```
 
-**Make someone IT staff:** go to `/admin/`, open *Users*, pick the person, tick
-*Staff status* and save.
+**Make someone a technician:** go to `/admin/`, open *Users*, pick the person, tick
+*Staff status* and save. Tick *Superuser status* as well to make them an admin.
+
+**Sign up a new business customer** (as an admin, in `/admin/`):
+
+1. *Organisations*, then *Add organisation*. Enter the name, phone and address, then save.
+2. *Users*, then *Add user*. Enter a username and a password, then save. Django opens the
+   user's page.
+3. On that page, fill in the name and email. In the **Profile** section at the bottom,
+   choose the organisation and tick *Organisation manager* for their main contact. Save.
+4. Repeat step 2 and 3 for each person (without the manager tick).
+
+The organisation's page now lists its members. A home customer is just a user with no
+organisation (and later, with feature 3, they sign up themselves).
 
 **Add a category or knowledge-base article:** `/admin/`, then *Categories* or *Articles*,
 then *Add*. The slug fills itself in from the title.
@@ -414,9 +479,10 @@ python manage.py seed_demo --reset
 Questions you may get, with short answers in your own words:
 
 **"Walk me through the project."**
-It's a service desk app in Django. Users raise tickets, IT works them against SLA targets
-per priority, there's a knowledge base for self-service and a dashboard that shows what's
-breached or at risk. It has role-based access, 42 automated tests and CI on GitHub.
+It's the customer portal for an IT services company, built in Django. Business and home
+customers raise tickets, technicians work them against SLA targets per priority, there's a
+knowledge base for self-service and a dashboard that shows what's breached or at risk.
+It has four roles, from customer up to admin, 66 automated tests and CI on GitHub.
 
 **"How do the SLA timers work?"**
 Each priority has a first-response and a resolution target. When a ticket is saved, the
@@ -425,19 +491,31 @@ its last 25% and breached past the deadline. The first public reply from IT stop
 response clock, and resolving stops the resolution clock.
 
 **"How do you stop a user seeing someone else's ticket?"**
-Every lookup goes through a queryset method, `visible_to(user)`, which filters to the user's
-own tickets unless they're staff. So it's enforced in the database query, not just hidden in
-the page, and they get a 404 so they can't even tell the ticket exists. There are tests for
-it.
+Every lookup goes through one queryset method, `visible_to(user)`. Staff get everything,
+an organisation manager gets their organisation's tickets, and everyone else only gets their
+own. So it's enforced in the database query, not just hidden in the page, and they get a 404
+so they can't even tell the ticket exists. There are tests for each role, including that one
+business customer can't see another's tickets.
 
 **"Why store the due dates instead of calculating them?"**
 So late tickets are a simple indexed query and the list can sort by deadline. They're
 recalculated on every save, so they can't go stale.
 
+**"How did you add organisations to an app that already had users?"**
+With a `Profile` model linked one-to-one to Django's user, rather than a custom user model.
+Swapping the user model in an existing project is risky, while a profile is the documented
+way to extend it. A signal creates the profile for every new user, and a data migration
+created profiles for the users who already existed. Tickets store the organisation when
+they're raised, so history stays correct if someone changes company.
+
+**"Why does the ticket store the organisation? You could get it from the requester."**
+Because people move. If Casey leaves Northside, Casey's old tickets still belong to
+Northside, and Northside's manager should still see them. It also makes "all tickets for this
+customer" a simple filter.
+
 **"What would you add next?"**
-Business-hours SLAs, pausing the clock while waiting on the customer, email
-notifications, organisations for business customers and self sign-up. (The roadmap below
-is exactly that.)
+Business-hours SLAs, pausing the clock while waiting on the customer, email notifications,
+self sign-up and on-site bookings. Most of that is on the roadmap below.
 
 **ITIL link:** tickets are *incidents* and *service requests*. Priority, SLA, first response,
 resolution, knowledge management and escalation of breached tickets are all ITIL
@@ -452,24 +530,25 @@ service-operation ideas.
 | **P1 to P4** | Priority levels, P1 being the most urgent (e.g. many people affected) |
 | **First response** | The first reply from IT to the person who raised the ticket |
 | **Knowledge base (KB)** | Self-help articles. Fewer tickets when people can fix things themselves ("ticket deflection") |
-| **Internal note** | A comment only IT staff can see |
+| **Internal note** | A comment only TechCare staff can see |
 | **Queryset** | A Django database query you can keep filtering, e.g. `Ticket.objects.open().filter(priority=1)` |
 | **Migration** | A file that changes the database structure to match the models |
 | **CSRF** | Cross-site request forgery. Django's token stops other sites submitting forms as you |
 | **CI** | Continuous integration: automatic checks on every push (GitHub Actions here) |
 | **403 / 404** | "Forbidden" / "Not found" HTTP responses |
 | **Seed data** | Fake demo data put into an empty database |
+| **Organisation (tenant)** | A business customer. Keeping each customer's data separate is called *multi-tenancy* |
+| **Profile** | A table linked one-to-one to the user table, for extra details Django's user doesn't have |
+| **Signal** | Code Django runs automatically when something happens, e.g. "after a user is saved" |
+| **Data migration** | A migration that changes data rather than table structure (here: create missing profiles) |
 
 ## 15. Roadmap: TechCare Services
 
-The next steps turn this helpdesk into the customer portal of **TechCare Services**, a
-fictional IT company that sets up and fixes technology for businesses and for people at
-home, on site or remotely. One feature at a time, each with tests and a new section in this
-guide:
+**TechCare Services** is a fictional IT company that sets up and fixes technology for
+businesses and for people at home, on site or remotely. The helpdesk is becoming its
+customer portal, one feature at a time, each with tests and an update to this guide:
 
-1. **Organisations and roles.** Business customers get an organisation account. An
-   organisation manager sees all of their organisation's tickets. Technicians and admins
-   are separate roles.
+1. ~~**Organisations and roles.**~~ **Done.** See [16.1](#161-feature-1-organisations-and-roles).
 2. **Company website.** A public home page with services, how it works and prices.
 3. **Self sign-up.** Home customers create an account with email, or with
    *Sign in with Google*.
@@ -478,3 +557,61 @@ guide:
 5. **Service charges.** A price list and a quote on every booking. No real payments.
 6. **Help assistant.** It answers questions from the knowledge base. If that doesn't help,
    the conversation becomes a ticket or a booking. A real AI model can be plugged in later.
+
+## 16. How each feature was built
+
+Each feature gets a short write-up here: what changed, which files, and *why* it was done
+that way. Read these to understand the decisions, not just the code.
+
+### 16.1 Feature 1: Organisations and roles
+
+**Goal.** TechCare has business customers (a dental clinic, a freight company) and home
+customers. A business customer's manager should see all of their organisation's tickets.
+Everyone else sees only their own. TechCare's own people are technicians or admins. It's
+still one website: what you see depends on your role.
+
+**What changed**
+
+| File | Change |
+|---|---|
+| `models.py` | New `Organisation` and `Profile` models. New `Ticket.organisation` field, filled in by `Ticket.save()`. `visible_to()` now knows about managers |
+| `roles.py` (new) | `role_of(user)` and `organisation_of(user)`: the only place roles are worked out |
+| `signals.py` (new), `apps.py` | Create a `Profile` whenever a user is created |
+| `migrations/0002_*`, `0003_*` | Create the new tables, then give every existing user a profile |
+| `admin.py` | *Organisations* page listing members. The user page now has a *Profile* section (organisation, manager tick). Role and organisation columns on the user list |
+| `views.py` | Ticket list: *Raised by* column for staff and managers, and a customer filter for staff. Dashboard: *Open tickets by customer* |
+| templates | Role shown in the header ("Manager, Northside Dental Clinic"), the customer shown on tickets, "Organisation tickets" in the manager's menu |
+| `seed_demo.py` | Two fictional organisations, a manager and a member at Northside, a manager at Harbour Freight, and a home customer |
+| `tests/test_organisations.py` (new) | 23 tests covering every role (section 10) |
+
+**Decisions and why**
+
+1. **A `Profile` table instead of a custom user model.** Django lets you replace its user
+   model, but doing that after the first migration is painful and risky. The recommended
+   way to add fields to existing users is a separate table linked one-to-one, which is
+   exactly what `Profile` is.
+2. **TechCare staff keep using Django's `is_staff` and `is_superuser`.** The admin site
+   already understands those flags, so no new "technician" field was needed, and all the
+   existing `is_staff` checks stayed correct. Customer roles live on the profile because
+   they belong to the customer's organisation, not to TechCare.
+3. **Roles are worked out in one function (`roles.role_of`).** Views, templates and the
+   queryset all ask the same function. A rule like "the manager tick only counts if the
+   person has an organisation" is written once, and tested once.
+4. **The ticket stores the organisation when it's raised.** It could be looked up through the
+   requester each time, but people change jobs. Storing it keeps a customer's ticket history
+   with that customer, and makes "this customer's tickets" a simple filter.
+5. **`PROTECT` on organisation links.** You can't delete an organisation that still has
+   members or tickets, so history can't vanish by accident. Untick *is active* instead.
+6. **A signal creates profiles, plus a data migration for old users.** Signals run however
+   a user is created (admin, `createsuperuser`, the seed command, and later self sign-up),
+   so no code path can forget. Signals don't run during migrations, so `0003` creates
+   profiles for the users who existed before this feature.
+7. **The admin's "Add user" page has no profile section.** When a user is saved, the
+   signal creates their profile. If the add page also had a profile form, it would try to
+   create a second one and crash. The section appears on the next page, which Django opens
+   straight after adding a user. A test covers this.
+8. **Managers are still customers.** They can see and comment on their organisation's
+   tickets, but can't change status or priority, can't see internal notes and can't open
+   the dashboard. Their comments don't stop TechCare's first-response clock.
+
+**How to check it yourself:** steps 5 to 9 of the demo script in [section 2](#2-try-it-in-5-minutes).
