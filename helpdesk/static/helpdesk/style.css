@@ -45,6 +45,8 @@ button.link { background: none; border: 0; color: #dbe7f5; padding: 0; cursor: p
 .bar-fill.p1 { background: var(--bad); }
 .bar-fill.p2 { background: #e8833a; }
 .bar-count { text-align: right; font-weight: 600; }
+.spaced { margin-top: 1.25rem; }
+.topbar .role { color: #9fb3c8; font-size: .85rem; margin-left: .25rem; }
 .status-row { display: flex; justify-content: space-between; padding: .2rem 0; border-bottom: 1px solid var(--line); }
 
 table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 8px; }

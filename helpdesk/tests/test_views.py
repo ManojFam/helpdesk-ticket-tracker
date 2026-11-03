@@ -127,7 +127,7 @@ class TicketFlowTests(TestCase):
         page = self.client.get(ticket.get_absolute_url()).content.decode()
         self.assertIn("Public reply", page)
         self.assertNotIn("Secret internal note", page)
-        self.assertNotIn("Internal note (IT staff only)", page)  # no checkbox either
+        self.assertNotIn("Internal note (TechCare staff only)", page)  # no checkbox either
 
         self.client.force_login(self.agent)
         self.assertContains(self.client.get(ticket.get_absolute_url()), "Secret internal note")

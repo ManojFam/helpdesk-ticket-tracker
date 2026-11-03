@@ -48,7 +48,7 @@ class CommentForm(forms.ModelForm):
         model = Comment
         fields = ["body", "is_internal"]
         widgets = {"body": forms.Textarea(attrs={"rows": 4})}
-        labels = {"body": "Add a comment", "is_internal": "Internal note (IT staff only)"}
+        labels = {"body": "Add a comment", "is_internal": "Internal note (TechCare staff only)"}
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)

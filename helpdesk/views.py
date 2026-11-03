@@ -9,9 +9,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from helpdesk import sla
+from helpdesk import roles, sla
 from helpdesk.forms import CommentForm, TicketCreateForm, TicketUpdateForm
-from helpdesk.models import Article, Ticket
+from helpdesk.models import Article, Organisation, Ticket
 from helpdesk.permissions import staff_required
 
 
@@ -25,7 +25,9 @@ def home(request):
 @staff_required
 def dashboard(request):
     now = timezone.now()
-    open_tickets = list(Ticket.objects.open().select_related("assignee", "category"))
+    open_tickets = list(
+        Ticket.objects.open().select_related("assignee", "category", "organisation")
+    )
     for ticket in open_tickets:
         ticket.sla_state = ticket.resolution_sla(now)
 
@@ -67,14 +69,26 @@ def dashboard(request):
         "resolved_30d": resolved_count,
         "by_priority": by_priority,
         "by_status": by_status,
+        "by_organisation": open_by_organisation(open_tickets),
         "needs_attention": needs_attention[:10],
     }
     return render(request, "helpdesk/dashboard.html", context)
 
 
+def open_by_organisation(open_tickets):
+    """Open tickets per customer, busiest first; home customers are grouped together."""
+    counts = {}
+    for ticket in open_tickets:
+        name = ticket.organisation.name if ticket.organisation else "Home customers"
+        counts[name] = counts.get(name, 0) + 1
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+
+
 @login_required
 def ticket_list(request):
-    tickets = Ticket.objects.visible_to(request.user).select_related("assignee", "category")
+    tickets = Ticket.objects.visible_to(request.user).select_related(
+        "assignee", "category", "organisation", "requester"
+    )
 
     status = request.GET.get("status", "open")
     if status == "open":
@@ -92,6 +106,13 @@ def ticket_list(request):
     elif request.user.is_staff and assigned == "none":
         tickets = tickets.filter(assignee__isnull=True)
 
+    # Staff can narrow the list to one customer; "home" means customers with no organisation.
+    organisation = request.GET.get("organisation", "")
+    if request.user.is_staff and organisation == "home":
+        tickets = tickets.filter(organisation__isnull=True)
+    elif request.user.is_staff and organisation.isdigit():
+        tickets = tickets.filter(organisation_id=int(organisation))
+
     query = request.GET.get("q", "").strip()
     if query:
         filters = Q(title__icontains=query) | Q(description__icontains=query)
@@ -108,9 +129,13 @@ def ticket_list(request):
         "status": status,
         "priority": priority,
         "assigned": assigned,
+        "organisation": organisation,
         "q": query,
         "statuses": Ticket.Status.choices,
         "priorities": Ticket.Priority.choices,
+        "organisations": Organisation.objects.all() if request.user.is_staff else [],
+        # Staff and organisation managers see other people's tickets, so show who raised them.
+        "show_requester": roles.role_of(request.user) != roles.CUSTOMER,
         "filters_query": filters_query.urlencode(),
     }
     return render(request, "helpdesk/ticket_list.html", context)
@@ -132,9 +157,11 @@ def ticket_create(request):
 
 @login_required
 def ticket_detail(request, pk):
-    # Requesters get a 404 for other people's tickets, so ticket numbers reveal nothing.
+    # Tickets the user may not see give a 404, so ticket numbers reveal nothing.
     ticket = get_object_or_404(
-        Ticket.objects.visible_to(request.user).select_related("requester", "assignee", "category"),
+        Ticket.objects.visible_to(request.user).select_related(
+            "requester", "assignee", "category", "organisation"
+        ),
         pk=pk,
     )
     comments = ticket.comments.select_related("author")

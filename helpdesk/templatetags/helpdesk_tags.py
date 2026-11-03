@@ -2,7 +2,7 @@ from django import template
 from django.utils import timezone
 from django.utils.html import format_html
 
-from helpdesk import sla
+from helpdesk import roles, sla
 
 register = template.Library()
 
@@ -30,6 +30,20 @@ def person(user, fallback="-"):
     if user is None:
         return fallback
     return user.get_full_name() or user.get_username()
+
+
+@register.filter
+def role(user):
+    """The role key, for use in templates: {% if user|role == "org_manager" %}."""
+    return roles.role_of(user)
+
+
+@register.filter
+def role_label(user):
+    """'Technician', 'Admin', 'Manager, Northside Dental Clinic', 'Customer' ..."""
+    label = roles.LABELS[roles.role_of(user)]
+    organisation = roles.organisation_of(user)
+    return f"{label}, {organisation}" if organisation else label
 
 
 @register.simple_tag

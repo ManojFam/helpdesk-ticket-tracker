@@ -33,7 +33,13 @@
   </section>
 
   <section class="card">
-    <h2>Last 7 days</h2>
+    <h2>Open tickets by customer</h2>
+    {% for name, count in by_organisation %}
+      <div class="status-row"><span>{{ name }}</span><span class="bar-count">{{ count }}</span></div>
+    {% empty %}
+      <p class="muted">No open tickets.</p>
+    {% endfor %}
+    <h2 class="spaced">Last 7 days</h2>
     <p class="big">{{ created_7d }} raised &middot; {{ resolved_7d }} resolved</p>
     <h2>SLA compliance (30 days)</h2>
     {% if compliance is None %}

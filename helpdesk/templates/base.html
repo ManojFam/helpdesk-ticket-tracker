@@ -12,14 +12,14 @@
     {% if user.is_authenticated %}
       <nav>
         {% if user.is_staff %}<a href="{% url 'dashboard' %}">Dashboard</a>{% endif %}
-        <a href="{% url 'ticket_list' %}">{% if user.is_staff %}Tickets{% else %}My tickets{% endif %}</a>
+        <a href="{% url 'ticket_list' %}">{% if user.is_staff %}Tickets{% elif user|role == "org_manager" %}Organisation tickets{% else %}My tickets{% endif %}</a>
         <a href="{% url 'ticket_create' %}">New ticket</a>
         <a href="{% url 'article_list' %}">Knowledge base</a>
         {% if user.is_superuser %}<a href="{% url 'admin:index' %}">Admin</a>{% endif %}
       </nav>
       <form class="logout" method="post" action="{% url 'logout' %}">
         {% csrf_token %}
-        <span>{{ user|person }}{% if user.is_staff %} (IT){% endif %}</span>
+        <span>{{ user|person }} <span class="role">{{ user|role_label }}</span></span>
         <button type="submit" class="link">Log out</button>
       </form>
     {% endif %}

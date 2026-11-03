@@ -8,7 +8,7 @@
 <div class="columns wide-left">
   <div>
     <section class="card">
-      <p class="muted small">Raised by {{ ticket.requester|person }} on {{ ticket.created_at|date:"D j M Y, H:i" }}</p>
+      <p class="muted small">Raised by {{ ticket.requester|person }}{% if ticket.organisation %} ({{ ticket.organisation }}){% endif %} on {{ ticket.created_at|date:"D j M Y, H:i" }}</p>
       <div class="prose">{{ ticket.description|linebreaks }}</div>
     </section>
 
@@ -17,7 +17,7 @@
       {% for comment in comments %}
         <div class="comment{% if comment.is_internal %} internal{% endif %}">
           <div class="muted small">
-            {{ comment.author|person }}{% if comment.author.is_staff %} (IT){% endif %}
+            {{ comment.author|person }}{% if comment.author.is_staff %} (TechCare){% endif %}
             &middot; {{ comment.created_at|date:"D j M, H:i" }}
             {% if comment.is_internal %}&middot; <strong>Internal note</strong>{% endif %}
           </div>
@@ -41,6 +41,7 @@
       <dl class="details">
         <dt>Status</dt><dd>{{ ticket.get_status_display }}</dd>
         <dt>Priority</dt><dd>{% priority_badge ticket %}</dd>
+        <dt>Customer</dt><dd>{{ ticket.organisation|default:"Home customer" }}</dd>
         <dt>Category</dt><dd>{{ ticket.category|default:"-" }}</dd>
         <dt>Assignee</dt><dd>{{ ticket.assignee|person:"Unassigned" }}</dd>
         <dt>First response</dt><dd>{% sla_badge ticket "response" %}<div class="muted small">due {{ ticket.response_due_at|date:"D j M, H:i" }}</div></dd>
