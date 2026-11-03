@@ -1,19 +1,25 @@
-# Helpdesk Ticket Tracker
+# TechCare Services: website and helpdesk portal
 
 [![CI](https://github.com/ManojFam/helpdesk-ticket-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/ManojFam/helpdesk-ticket-tracker/actions/workflows/ci.yml)
 
-The customer portal of **TechCare Services**, a fictional IT company, built with Django.
-Business customers and home customers raise tickets, technicians work them against **SLA
+The public website and customer portal of **TechCare Services**, a fictional IT company,
+built with Django. The **website** shows services, prices and response times. In the
+**portal**, business and home customers raise tickets, technicians work them against **SLA
 timers**, a **knowledge base** helps people fix common problems themselves, and a
 **dashboard** shows what needs attention right now.
 
-![Dashboard](docs/dashboard.png)
+| Public website | Staff dashboard |
+|---|---|
+| ![Website](docs/website-home.png) | ![Dashboard](docs/dashboard.png) |
 
 **New to the code?** Read **[the guide](docs/GUIDE.md)**. It covers how the app works file by
 file, the data model, the SLA rules, permissions, a demo script and interview talking points.
 
 ## Features
 
+- **Public website** at `/`: what TechCare does for businesses and homes, how it works, a
+  services and prices page (`/services/`) managed in the admin, and the response-time table,
+  which is read from the same SLA rules the tickets use.
 - **Tickets** have a priority (P1 to P4), a status (New, In progress, Waiting on requester,
   Resolved, Closed), a category and an assignee. The conversation thread supports
   **internal notes** that only TechCare staff can see.
@@ -73,7 +79,8 @@ python manage.py seed_demo    # fictional demo data; prints the demo password
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000 and log in as:
+Open http://127.0.0.1:8000 for the website, then click **Log in** to reach the portal
+(`/portal/`). Log in as:
 
 - `jordan.lee`, technician (dashboard, all tickets)
 - `sam.taylor`, manager at Northside Dental Clinic (all of Northside's tickets)
@@ -89,10 +96,11 @@ tickets are made up.
 
 ```text
 config/              settings (read from environment / .env), URLs, WSGI
-helpdesk/
+website/             the public website: home and services pages (no models of its own)
+helpdesk/            the portal and all the data:
   sla.py             SLA targets and the on-track / at-risk / breached / met rules
   roles.py           admin / technician / organisation manager / customer, in one place
-  models.py          Organisation, Profile, Category, Ticket, Comment, Article
+  models.py          Organisation, Profile, Service, Category, Ticket, Comment, Article
   signals.py         creates a profile for every new user
   views.py           dashboard, ticket list/detail/create, comments, updates, knowledge base
   forms.py           ticket, update and comment forms
@@ -131,6 +139,10 @@ Design choices:
   user one-to-one is the safe way to add fields to an existing project. A signal creates the
   profile for every new user, and a data migration covered existing users. Tickets keep the
   organisation they were raised under, even if the person later moves on.
+- **Website and portal are separate apps over one set of data.** The website has no tables
+  of its own: services are rows an admin edits, and the response-time table is generated from
+  `sla.py`, so the published promise always matches what the portal measures. The portal
+  sits under `/portal/`. Every link uses a named URL, so moving it was a one-line change.
 - **Configuration comes from environment variables.** `SECRET_KEY` is required, `DEBUG`
   defaults to off, and `.env` is never committed (see `.env.example`).
 
@@ -144,11 +156,11 @@ python manage.py test
 ruff check . && ruff format --check .
 ```
 
-There are 66 tests. They cover every SLA rule and boundary, due dates and priority changes,
+There are 78 tests. They cover every SLA rule and boundary, due dates and priority changes,
 first-response rules, what each of the four roles can see, comment on or update (including
 one customer never seeing another's tickets), internal-note privacy,
 ticket list filters and ordering, dashboard counts and compliance, knowledge-base search and
-drafts, and the demo seed command. Test runs use a fast password hasher so the suite takes
+drafts, the public website pages, and the demo seed command. Test runs use a fast password hasher so the suite takes
 under a second. GitHub Actions runs `manage.py check`, a missing-migrations check, ruff and the
 tests on every push.
 

@@ -32,9 +32,13 @@ tickets** against time targets (**SLAs**), writes **knowledge-base articles** so
 fix common problems themselves, and watches a **dashboard** that shows what is late or about
 to be late.
 
-The app is the customer portal of **TechCare Services**, a fictional IT company that
-supports **business customers** (organisations) and **home customers**. There is one
-website, and what you see depends on your **role**:
+It belongs to **TechCare Services**, a fictional IT company that supports **business
+customers** (organisations) and **home customers**. There are two parts:
+
+- **The public website** (`/` and `/services/`). Anyone can visit it without logging in. It
+  explains what TechCare does, lists services and prices, and shows the response times.
+- **The portal** (everything under `/portal/`). Customers and staff log in here. It's one
+  portal for everyone, and what you see depends on your **role**:
 
 | Role | Who | What they see |
 |---|---|---|
@@ -61,7 +65,8 @@ python manage.py seed_demo          # prints the demo password
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000 and follow this script:
+Open http://127.0.0.1:8000. That's the **public website**. Look around: *Services &
+prices*, *How it works* and *Response times*. Then click **Log in** and follow this script:
 
 The demo has these people (all fictional):
 
@@ -87,13 +92,16 @@ The demo has these people (all fictional):
    *Organisation tickets*. You see Sam's tickets **and Casey's**, with a *Raised by*
    column, but nothing from Harbour Freight. Open Casey's ticket: there is no internal note.
 6. **Log in as `casey.nguyen`** (staff at Northside). Casey sees only Casey's own tickets.
-   Try opening one of Sam's, e.g. `/tickets/1/`. You get *Not Found*.
+   Try opening one of Sam's, e.g. `/portal/tickets/1/`. You get *Not Found*.
 7. As Casey, click **New ticket**. The page suggests knowledge-base articles. Raise a
    ticket, then log back in as Sam: the new ticket shows up in Sam's list too.
 8. Open **Knowledge base** and search `wifi`. It finds the "Wi-Fi" article (hyphens are
    ignored).
 9. **Log in as `helpdesk.admin`** and open **Admin**, then *Organisations*, then
    *Northside Dental Clinic*. You see its members and who the manager is.
+10. Still in Admin, open **Services**. Change a price in the list, click *Save*, then click
+    **TechCare Services** in the portal header to go back to the website. The new price is
+    already there.
 
 ## 3. How a Django app fits together
 
@@ -102,7 +110,7 @@ same path:
 
 ```mermaid
 flowchart LR
-    B[Browser asks for /tickets/5/] --> U[urls.py<br/>finds the view]
+    B[Browser asks for /portal/tickets/5/] --> U[urls.py<br/>finds the view]
     U --> V[views.py<br/>checks login and permissions,<br/>asks the models for data]
     V --> M[models.py<br/>reads/writes the database]
     M --> V
@@ -113,7 +121,7 @@ flowchart LR
 | Piece | Job | In this project |
 |---|---|---|
 | **Settings** | Configuration: database, installed apps, time zone, secret key | `config/settings.py` |
-| **URLs** | Map an address to a view | `config/urls.py`, `helpdesk/urls.py` |
+| **URLs** | Map an address to a view | `config/urls.py`, `helpdesk/urls.py`, `website/urls.py` |
 | **Views** | Python functions that handle a request and return a page | `helpdesk/views.py` |
 | **Models** | Python classes that describe database tables | `helpdesk/models.py` |
 | **Migrations** | Files that create or change the tables to match the models | `helpdesk/migrations/` |
@@ -122,8 +130,10 @@ flowchart LR
 | **Admin** | A ready-made back office for editing data | `helpdesk/admin.py` |
 | **Management commands** | Your own `python manage.py ...` commands | `helpdesk/management/commands/` |
 
-`config` is the **project** (site-wide settings). `helpdesk` is an **app** (one feature
-area). A big site has several apps. This one has one so far.
+`config` is the **project** (site-wide settings). `helpdesk` and `website` are **apps**
+(feature areas). `helpdesk` is the portal and holds all the data. `website` is the public
+shop window: it has no tables of its own and only displays services and SLA promises that
+live in `helpdesk`.
 
 ## 4. Tour of the files
 
@@ -134,12 +144,12 @@ requirements.txt          Python packages to install (Django, python-dotenv)
 pyproject.toml            settings for ruff, the code checker
 config/
   settings.py             reads .env; apps, database, time zone, login pages
-  urls.py                 /admin/, /accounts/ (login/logout), everything else -> helpdesk
+  urls.py                 /admin/, /accounts/ (login/logout), /portal/ -> helpdesk, / -> website
   wsgi.py                 entry point for a production web server
 helpdesk/
   sla.py                  the SLA rules (no database code at all)
   roles.py                who is admin / technician / organisation manager / customer
-  models.py               Organisation, Profile, Category, Ticket, Comment, Article
+  models.py               Organisation, Profile, Service, Category, Ticket, Comment, Article
   signals.py              creates a Profile whenever a user is created
   views.py                one function per page
   urls.py                 the addresses of those pages
@@ -158,7 +168,15 @@ helpdesk/
     0001_initial.py                  creates the first tables
     0002_organisations_and_profiles.py   adds Organisation, Profile, Ticket.organisation
     0003_create_missing_profiles.py      gives users who already existed a profile
+    0004_services.py                     adds the Service price list
   tests/                  automatic tests (section 10)
+website/                  the public TechCare website (no models)
+  views.py                home page and services page
+  urls.py                 / and /services/
+  templates/website/      base.html (public header/footer), home.html, services.html,
+                          _service_card.html, _response_times.html (shared pieces)
+  static/website/site.css the website's own stylesheet
+  tests.py                tests for the public pages
 .github/workflows/ci.yml  GitHub runs the checks on every push
 docs/                     this guide and the screenshots
 ```
@@ -226,9 +244,22 @@ use `user.profile`.
 TechCare staff can see.
 
 **Article** is a knowledge-base page. `is_published = False` keeps it as a hidden draft.
-`slug` is the readable address part, e.g. `/kb/reset-your-password/`.
+`slug` is the readable address part, e.g. `/portal/kb/reset-your-password/`.
 
 **Category** is a simple list of names shared by tickets and articles.
+
+**Service** is one line of TechCare's price list, shown on the public website:
+
+| Field | Meaning |
+|---|---|
+| `name`, `slug` | e.g. "On-site repair visit", `on-site-repair-visit` |
+| `summary` | One line for the home page cards |
+| `description` | The longer text on the services page |
+| `audience` | `business`, `home` or `both`. Decides which list it appears in |
+| `delivery` | `onsite`, `remote` or `either` |
+| `price_from`, `price_unit` | e.g. `129.00` and "per visit", shown as "From $129 per visit" (`price_label`) |
+| `is_active` | Untick to hide it from the website without deleting it |
+| `sort_order` | Lower numbers are shown first |
 
 `TicketQuerySet` in `models.py` adds two shortcuts used everywhere:
 
@@ -291,6 +322,7 @@ hours), and they don't pause while waiting on the requester.
 
 | Action | Not logged in | Customer | Organisation manager | Technician / Admin |
 |---|---|---|---|---|
+| Public website (`/`, `/services/`) | yes | yes | yes | yes |
 | See the dashboard | login page | **403 Forbidden** | **403** | yes |
 | List tickets | login page | own only | own + organisation's, with *Raised by* | all, with customer filter |
 | Open a ticket | login page | own only (**404** otherwise) | own + organisation's (**404** otherwise) | all |
@@ -327,7 +359,7 @@ one place.
 
 ## 8. Life of a ticket, step by step
 
-**1. Sam raises a ticket.** The browser posts the form to `/tickets/new/`.
+**1. Sam raises a ticket.** The browser posts the form to `/portal/tickets/new/`.
 
 - `helpdesk/urls.py` maps that address to `views.ticket_create`.
 - `@login_required` checks that Sam is logged in.
@@ -338,7 +370,7 @@ one place.
   from the priority.
 - The view adds a "Ticket #25 raised" message and redirects to the ticket page.
 
-**2. Jordan replies.** A post to `/tickets/25/comment/` runs `views.ticket_comment`.
+**2. Jordan replies.** A post to `/portal/tickets/25/comment/` runs `views.ticket_comment`.
 
 - The ticket is fetched with `visible_to(request.user)`. Jordan is staff, so it's found.
 - `ticket.add_comment(...)` saves the comment. Because Jordan is staff, the comment is
@@ -346,7 +378,7 @@ one place.
   clock stops.**
 
 **3. Jordan asks Sam a question** and sets the status to *Waiting on requester* via
-`/tickets/25/update/` (`views.ticket_update`, staff only).
+`/portal/tickets/25/update/` (`views.ticket_update`, staff only).
 
 **4. Sam answers.** In `ticket_comment`, a requester replying to a *Waiting* ticket moves it
 back to **In progress**, so it shows up in IT's queue again.
@@ -375,13 +407,13 @@ database queries.
 
 ## 10. Tests and CI
 
-Run all 66 tests:
+Run all 78 tests:
 
 ```bash
 python manage.py test
 ```
 
-You should see `Ran 66 tests ... OK`. Each test creates its own empty test database, so
+You should see `Ran 78 tests ... OK`. Each test creates its own empty test database, so
 your real data is never touched.
 
 | File | What it checks |
@@ -390,7 +422,8 @@ your real data is never touched.
 | `tests/test_models.py` | Deadlines on create and on priority change, resolved/reopened, first-response rules, `open()` and `visible_to()` |
 | `tests/test_views.py` | Login redirects, 403/404 rules, raising/updating/commenting, internal-note privacy, list filters and order, dashboard counts, knowledge-base search |
 | `tests/test_organisations.py` | Profiles are created automatically, the four roles, which tickets each role can see/open/comment on, managers still blocked from staff pages, staff filter by customer, dashboard per-customer counts, admin pages |
-| `tests/test_seed_demo.py` | The demo data covers every SLA state and every customer type, the password option, and refusing to seed twice |
+| `tests/test_seed_demo.py` | The demo data covers every SLA state, every customer type and the price list, the password option, and refusing to seed twice |
+| `website/tests.py` | The public pages work without logging in, show only active services (at most 6 on the home page), group them for businesses and homes, show response times taken from `sla.py`, the "From $129 per visit" price format, and that login goes to the portal and logout back to the website |
 | `tests/helpers.py` | Small functions the tests share (`make_user`, `make_ticket`) |
 
 Run one file or one test while you work on something:
@@ -460,7 +493,12 @@ organisation (and later, with feature 3, they sign up themselves).
 **Add a category or knowledge-base article:** `/admin/`, then *Categories* or *Articles*,
 then *Add*. The slug fills itself in from the title.
 
-**Change an SLA target:** edit `SLA_TARGETS` in `helpdesk/sla.py`. Then update
+**Change a price or a service on the website:** `/admin/`, then *Services*. Price,
+*active* and sort order can be edited straight from the list. Untick *active* to hide a
+service. No code change or restart is needed.
+
+**Change an SLA target:** edit `SLA_TARGETS` in `helpdesk/sla.py`. The website's
+*Response times* table updates as well, because it reads the same numbers. Then update
 `tests/test_sla.py` (the test that lists the targets will fail until you do, which is
 the point), run the tests and commit. New saves use the new targets.
 
@@ -482,7 +520,8 @@ Questions you may get, with short answers in your own words:
 It's the customer portal for an IT services company, built in Django. Business and home
 customers raise tickets, technicians work them against SLA targets per priority, there's a
 knowledge base for self-service and a dashboard that shows what's breached or at risk.
-It has four roles, from customer up to admin, 66 automated tests and CI on GitHub.
+It has four roles, from customer up to admin, 78 automated tests and CI on GitHub. There's also a public website that
+reads its prices and response times from the same data the portal uses.
 
 **"How do the SLA timers work?"**
 Each priority has a first-response and a resolution target. When a ticket is saved, the
@@ -549,7 +588,7 @@ businesses and for people at home, on site or remotely. The helpdesk is becoming
 customer portal, one feature at a time, each with tests and an update to this guide:
 
 1. ~~**Organisations and roles.**~~ **Done.** See [16.1](#161-feature-1-organisations-and-roles).
-2. **Company website.** A public home page with services, how it works and prices.
+2. ~~**Company website.**~~ **Done.** See [16.2](#162-feature-2-the-techcare-website).
 3. **Self sign-up.** Home customers create an account with email, or with
    *Sign in with Google*.
 4. **Book a technician visit.** Choose a service, an address and a time slot. Technicians
@@ -615,3 +654,51 @@ still one website: what you see depends on your role.
    the dashboard. Their comments don't stop TechCare's first-response clock.
 
 **How to check it yourself:** steps 5 to 9 of the demo script in [section 2](#2-try-it-in-5-minutes).
+
+### 16.2 Feature 2: The TechCare website
+
+**Goal.** A public website for TechCare Services that anyone can visit: what the company
+does, for businesses and for homes, a price list, how it works and the response-time
+promise. Existing customers click *Log in* to reach the portal.
+
+**What changed**
+
+| File | Change |
+|---|---|
+| `website/` (new app) | `views.py` (home and services pages), `urls.py`, templates, `site.css`, `tests.py` |
+| `helpdesk/models.py` | New `Service` model (the price list) with `price_label`, `for_business` and `for_home` |
+| `migrations/0004_services.py` | Creates the service table |
+| `helpdesk/admin.py` | *Services* page. Price, active and order can be edited from the list |
+| `helpdesk/sla.py` | New `describe_duration()`, which turns a timedelta into "30 minutes" or "3 days" |
+| `config/urls.py` | The portal moved to `/portal/`, and `/` is now the website |
+| `config/settings.py` | `website` added to `INSTALLED_APPS`. Login goes to the portal, logout to the website |
+| portal templates | Header says **TechCare Services · Portal** and links back to the website. The login page has a link back too |
+| `seed_demo.py` | Eight services with realistic (fictional) prices |
+
+**Decisions and why**
+
+1. **A separate `website` app.** The public site and the portal change for different
+   reasons (marketing copy versus support workflow) and look different. Keeping them in
+   two apps keeps each one small and easy to read. `website` has **no models**: it only
+   reads `Service` and the SLA targets from `helpdesk`, so all the data lives in one place.
+2. **Services are in the database, not in the template.** Prices change. Storing them in a
+   table means an admin can update the price list in `/admin/` without a developer, and
+   features 4 and 5 (bookings and quotes) can point at the same `Service` rows.
+3. **The response-time table is read from `sla.py`.** The website and the ticket timers use
+   the same `SLA_TARGETS`, so the promise on the website can never drift away from what
+   the system actually measures. A test checks the table matches.
+4. **The portal moved under `/portal/`** by changing one line in `config/urls.py`
+   (`path("portal/", include("helpdesk.urls"))`). Every link in the code uses
+   `{% url %}` / `reverse()` by name, never a hard-coded address, so nothing else had to
+   change. That's why Django names URLs.
+5. **One page shell per side.** `website/base.html` and the portal's `base.html` each hold
+   the header and footer once. Shared pieces (`_service_card.html`,
+   `_response_times.html`) are included on both website pages instead of being copied.
+6. **Plain HTML and CSS, no JavaScript or CSS framework.** It works on phones (the
+   layout uses CSS grid with `auto-fit`, and the response-times table turns into stacked
+   rows on small screens), and there's nothing extra to install or keep updated.
+7. **Honest content.** The footer says TechCare is fictional, the email address uses the
+   reserved `.example` domain, and there are no phone numbers that could belong to someone.
+
+**How to check it yourself:** open http://127.0.0.1:8000, click around the website, then
+follow step 10 of the demo script in [section 2](#2-try-it-in-5-minutes) to change a price.
