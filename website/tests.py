@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.test import TestCase
 from django.urls import reverse
 
+from helpdesk.accounts import trust_email
 from helpdesk.models import Service
 from helpdesk.tests.helpers import PASSWORD, make_user
 
@@ -32,7 +33,7 @@ class PublicPageTests(TestCase):
         response = self.client.get(reverse("site_home"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "IT support that comes to you")
-        self.assertContains(response, f'href="{reverse("login")}"')
+        self.assertContains(response, f'href="{reverse("account_login")}"')
 
     def test_home_page_lists_active_services_only(self):
         response = self.client.get(reverse("site_home"))
@@ -82,13 +83,15 @@ class PortalLinkTests(TestCase):
         self.assertEqual(reverse("ticket_list"), "/portal/tickets/")
 
     def test_logging_in_opens_the_portal(self):
-        make_user("sam")
-        response = self.client.post(reverse("login"), {"username": "sam", "password": PASSWORD})
+        trust_email(make_user("sam", email="sam@example.com"))
+        response = self.client.post(
+            reverse("account_login"), {"login": "sam", "password": PASSWORD}
+        )
         self.assertRedirects(response, reverse("portal"), fetch_redirect_response=False)
 
     def test_logging_out_returns_to_the_website(self):
         self.client.force_login(make_user("sam"))
-        response = self.client.post(reverse("logout"))
+        response = self.client.post(reverse("account_logout"))
         self.assertRedirects(response, reverse("site_home"))
 
 

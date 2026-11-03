@@ -17,15 +17,20 @@
         <a href="{% url 'article_list' %}">Knowledge base</a>
         {% if user.is_superuser %}<a href="{% url 'admin:index' %}">Admin</a>{% endif %}
       </nav>
-      <form class="logout" method="post" action="{% url 'logout' %}">
+      <form class="logout" method="post" action="{% url 'account_logout' %}">
         {% csrf_token %}
         <span>{{ user|person }} <span class="role">{{ user|role_label }}</span></span>
         <button type="submit" class="link">Log out</button>
       </form>
+    {% else %}
+      <nav class="guest">
+        <a href="{% url 'account_login' %}">Log in</a>
+        <a href="{% url 'account_signup' %}">Create account</a>
+      </nav>
     {% endif %}
   </header>
 
-  <main>
+  <main class="{% block main_class %}{% endblock %}">
     {% for message in messages %}
       <div class="message {{ message.tags }}">{{ message }}</div>
     {% endfor %}

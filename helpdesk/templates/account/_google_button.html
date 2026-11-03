@@ -1,0 +1,10 @@
+{% load socialaccount helpdesk_tags %}
+{% google_login_enabled as google_on %}
+{% if google_on %}
+  <div class="divider"><span>or</span></div>
+  {# POST, not a link: allauth requires it so other sites can't start a login for you. #}
+  <form method="post" action="{% provider_login_url 'google' %}">
+    {% csrf_token %}
+    <button type="submit" class="google">{{ label }}</button>
+  </form>
+{% endif %}

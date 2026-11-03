@@ -1,4 +1,5 @@
 from django import template
+from django.conf import settings
 from django.utils import timezone
 from django.utils.html import format_html
 
@@ -22,6 +23,12 @@ def sla_badge(ticket, timer="resolution"):
     if running:
         label = f"{label} - {sla.describe_time_left(due, now)}"
     return format_html('<span class="badge sla-{}">{}</span>', state, label)
+
+
+@register.simple_tag
+def google_login_enabled():
+    """True when Google keys are configured, so the 'Continue with Google' button can work."""
+    return settings.GOOGLE_LOGIN_ENABLED
 
 
 @register.filter

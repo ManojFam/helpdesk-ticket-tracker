@@ -9,7 +9,7 @@
       {% if user.is_authenticated %}
         <a class="btn" href="{% url 'portal' %}">Open your portal</a>
       {% else %}
-        <a class="btn" href="{% url 'login' %}">Log in to get help</a>
+        <a class="btn" href="{% url 'account_signup' %}">Create a free account</a>
       {% endif %}
       <a class="btn btn-ghost" href="{% url 'site_services' %}">See services and prices</a>
     </p>
@@ -80,6 +80,7 @@
         <li>Virus clean-ups, slow-computer fixes and data recovery</li>
         <li>Friendly technicians who explain things in plain English</li>
         <li>Clear prices before we start</li>
+        <li>Create your account online in a minute, with email or Google</li>
       </ul>
     </div>
   </div>
@@ -90,9 +91,15 @@
 <section class="cta">
   <div class="wrap">
     <h2>Something not working?</h2>
-    <p>Existing customers can raise a request now. New customer? Email
-      <a href="mailto:hello@techcare.example">hello@techcare.example</a> and we'll set you up.</p>
-    <a class="btn" href="{% if user.is_authenticated %}{% url 'portal' %}{% else %}{% url 'login' %}{% endif %}">Get help</a>
+    <p>Raise a request in the portal. New home customer? Create an account in a minute.
+      Business? Email <a href="mailto:hello@techcare.example">hello@techcare.example</a> and
+      we'll set up your organisation.</p>
+    {% if user.is_authenticated %}
+      <a class="btn" href="{% url 'portal' %}">Open your portal</a>
+    {% else %}
+      <a class="btn" href="{% url 'account_signup' %}">Create an account</a>
+      <a class="btn btn-ghost-light" href="{% url 'account_login' %}">Log in</a>
+    {% endif %}
   </div>
 </section>
 {% endblock %}

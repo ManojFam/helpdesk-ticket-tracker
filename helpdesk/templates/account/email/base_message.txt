@@ -1,0 +1,8 @@
+{% autoescape off %}Hello from TechCare Services,
+
+{% block content %}{% endblock content %}
+
+Thanks,
+The TechCare Services team
+(TechCare Services is a fictional company: this email comes from a portfolio project.)
+{% endautoescape %}

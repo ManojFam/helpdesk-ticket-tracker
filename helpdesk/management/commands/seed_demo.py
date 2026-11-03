@@ -15,6 +15,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
+from helpdesk.accounts import trust_email
 from helpdesk.models import Article, Category, Comment, Organisation, Service, Ticket
 
 # TechCare's business customers (fictional).
@@ -432,6 +433,7 @@ class Command(BaseCommand):
             )
             user.set_password(password)
             user.save()  # the signal creates user.profile
+            trust_email(user)  # created by TechCare, so no verification email needed
             user.profile.organisation = organisations.get(org)
             user.profile.is_org_manager = is_manager
             user.profile.save()

@@ -43,6 +43,26 @@ class TicketUpdateForm(forms.ModelForm):
         self.fields["assignee"].label_from_instance = lambda u: u.get_full_name() or u.username
 
 
+class SignupDetailsForm(forms.Form):
+    """Extra fields on the self sign-up page (django-allauth adds email and password).
+
+    allauth calls signup() after it creates the user. People who sign up themselves are
+    always home customers: no organisation and not staff. Business customers' accounts are
+    created by TechCare in the admin.
+    """
+
+    first_name = forms.CharField(max_length=150)
+    last_name = forms.CharField(max_length=150)
+
+    # allauth's sign-up form inherits from this class, so this also orders its fields.
+    field_order = ["first_name", "last_name", "email", "password1", "password2"]
+
+    def signup(self, request, user):
+        user.first_name = self.cleaned_data["first_name"]
+        user.last_name = self.cleaned_data["last_name"]
+        user.save()
+
+
 class CommentForm(forms.ModelForm):
     class Meta:
         model = Comment

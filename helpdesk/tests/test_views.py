@@ -4,6 +4,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from helpdesk.accounts import trust_email
 from helpdesk.models import Article, Ticket
 from helpdesk.tests.helpers import PASSWORD, make_category, make_ticket, make_user
 
@@ -26,7 +27,7 @@ class AccessTests(TestCase):
             with self.subTest(page=name):
                 response = self.client.get(reverse(name, args=args))
                 self.assertRedirects(
-                    response, f"{reverse('login')}?next={reverse(name, args=args)}"
+                    response, f"{reverse('account_login')}?next={reverse(name, args=args)}"
                 )
 
     def test_home_sends_staff_to_dashboard_and_requesters_to_their_tickets(self):
@@ -59,7 +60,12 @@ class AccessTests(TestCase):
         self.assertEqual(self.ticket.status, Ticket.Status.NEW)
 
     def test_login_page_works(self):
-        response = self.client.post(reverse("login"), {"username": "sam", "password": PASSWORD})
+        self.sam.email = "sam@example.com"
+        self.sam.save()
+        trust_email(self.sam)  # login needs a verified address (see helpdesk/accounts.py)
+        response = self.client.post(
+            reverse("account_login"), {"login": "sam", "password": PASSWORD}
+        )
         self.assertRedirects(response, reverse("portal"), fetch_redirect_response=False)
 
 

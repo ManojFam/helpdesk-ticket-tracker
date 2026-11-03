@@ -47,6 +47,17 @@ button.link { background: none; border: 0; color: #dbe7f5; padding: 0; cursor: p
 .bar-fill.p2 { background: #e8833a; }
 .bar-count { text-align: right; font-weight: 600; }
 .spaced { margin-top: 1.25rem; }
+.topbar nav.guest { margin-left: auto; }
+main.auth { max-width: 460px; padding-top: 2.5rem; }
+main.auth .card form p input:not([type=checkbox]) { width: 100%; }
+main.auth button[type=submit] { width: 100%; padding: .65rem; }
+.divider { display: flex; align-items: center; gap: .75rem; color: var(--muted); margin: 1.1rem 0; font-size: .85rem; }
+.divider::before, .divider::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+button.google { background: #fff; color: var(--ink); border: 1px solid #cbd2d9; font-weight: 600; }
+button.google:hover { background: var(--bg); }
+/* Django puts password rules in a <ul> inside the <p>; browsers move it out, so style it directly. */
+main.auth form ul:not(.errorlist) { color: var(--muted); font-size: .85rem; margin: -.5rem 0 1rem; padding-left: 1.2rem; }
+ul.errorlist { list-style: none; margin: 0 0 .5rem; padding: .5rem .75rem; background: var(--bad-bg); color: var(--bad); border-radius: 6px; font-size: .9rem; }
 .topbar .role { color: #9fb3c8; font-size: .85rem; margin-left: .25rem; }
 .status-row { display: flex; justify-content: space-between; padding: .2rem 0; border-bottom: 1px solid var(--line); }
 

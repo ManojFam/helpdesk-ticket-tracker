@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Create an account{% endblock %}
+{% block main_class %}auth{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Create an account</h1>
+  <p class="muted">For home customers. We'll email you a link to confirm your address.</p>
+  <form method="post" action="{% url 'account_signup' %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    {{ redirect_field }}
+    <button type="submit">Create account</button>
+  </form>
+
+  {% include "account/_google_button.html" with label="Sign up with Google" %}
+</div>
+
+<p class="muted small">
+  Already have an account? <a href="{% url 'account_login' %}">Log in</a>.<br>
+  Signing up for a business? Email <a href="mailto:hello@techcare.example">hello@techcare.example</a>
+  and we'll set up your organisation.
+</p>
+{% endblock %}

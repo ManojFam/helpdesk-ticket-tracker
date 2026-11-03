@@ -72,6 +72,8 @@ p { margin: 0 0 1rem; }
 .cta { background: var(--brand); color: #fff; padding: 3rem 0; text-align: center; }
 .cta a:not(.btn) { color: #fff; }
 .cta p { color: #dce6f3; }
+.btn-ghost-light { background: transparent; border-color: #fff; margin-left: .5rem; }
+.btn-ghost-light:hover { background: #fff; color: var(--brand); border-color: #fff; }
 
 .site-footer { border-top: 1px solid var(--line); padding: 2rem 0; }
 .site-footer .wrap { display: flex; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; }

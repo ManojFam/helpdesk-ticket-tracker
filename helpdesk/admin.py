@@ -1,8 +1,9 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin
 
 from helpdesk import roles
+from helpdesk.accounts import trust_email
 from helpdesk.models import (
     Article,
     Category,
@@ -58,6 +59,17 @@ class TechCareUserAdmin(UserAdmin):
     list_display = ["username", "first_name", "last_name", "role", "organisation", "is_active"]
     list_filter = ["is_staff", "is_superuser", "profile__organisation", "is_active"]
     list_select_related = ["profile__organisation"]
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        # An address typed in by TechCare staff counts as verified (see accounts.py).
+        if obj.email:
+            trust_email(obj)
+        elif change:
+            messages.warning(
+                request,
+                f"{obj.username} has no email address, so they can't log in to the portal yet.",
+            )
 
     def get_inlines(self, request, obj):
         # On "Add user" the signal creates the profile when the user is saved, so the

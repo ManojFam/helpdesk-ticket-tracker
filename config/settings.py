@@ -38,8 +38,14 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Our apps come before allauth so our versions of its templates (login, sign-up) win.
     "helpdesk",
     "website",
+    # django-allauth: login, sign-up, email verification, password reset, Google sign-in.
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
 ]
 
 MIDDLEWARE = [
@@ -50,6 +56,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -101,6 +108,50 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-LOGIN_URL = "login"
+LOGIN_URL = "account_login"
 LOGIN_REDIRECT_URL = "portal"
-LOGOUT_REDIRECT_URL = "site_home"
+
+# --- Accounts (django-allauth) ---------------------------------------------------------
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",  # username + password (admin, demo staff)
+    "allauth.account.auth_backends.AuthenticationBackend",  # email login, Google
+]
+
+# Log in with an email address or a username. Sign up with name, email and password; the
+# username is generated from the email. New sign-ups are always home customers.
+ACCOUNT_LOGIN_METHODS = {"email", "username"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_SIGNUP_FORM_CLASS = "helpdesk.forms.SignupDetailsForm"
+ACCOUNT_UNIQUE_EMAIL = True
+# People must click the link in a verification email before they can log in, so nobody can
+# sign up (and raise tickets) with someone else's address.
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
+ACCOUNT_LOGOUT_REDIRECT_URL = "site_home"
+ACCOUNT_USER_DISPLAY = "helpdesk.accounts.display_name"
+ACCOUNT_EMAIL_SUBJECT_PREFIX = "[TechCare Services] "
+
+# Emails are printed in the runserver terminal unless a real backend is configured.
+EMAIL_BACKEND = os.environ.get(
+    "DJANGO_EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DJANGO_DEFAULT_FROM_EMAIL", "TechCare Services <no-reply@techcare.example>"
+)
+
+# "Sign in with Google" appears only when both values are set (see docs/GOOGLE_SIGN_IN.md).
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_LOGIN_ENABLED = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
+    }
+}
+if GOOGLE_LOGIN_ENABLED:
+    SOCIALACCOUNT_PROVIDERS["google"]["APP"] = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "secret": GOOGLE_CLIENT_SECRET,
+    }

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block main_class %}auth{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Log in</h1>
+  <form method="post" action="{% url 'account_login' %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    {{ redirect_field }}
+    <button type="submit">Log in</button>
+  </form>
+  <p class="small"><a href="{% url 'account_reset_password' %}">Forgot your password?</a></p>
+
+  {% include "account/_google_button.html" with label="Continue with Google" %}
+</div>
+
+<p class="muted small">
+  New home customer? <a href="{% url 'account_signup' %}">Create an account</a>.<br>
+  Business customer? TechCare sets up your team's logins: ask your manager or email
+  <a href="mailto:hello@techcare.example">hello@techcare.example</a>.
+</p>
+<p class="muted small"><a href="{% url 'site_home' %}">&larr; Back to the TechCare website</a></p>
+{% endblock %}
