@@ -6,6 +6,7 @@ from helpdesk import roles
 from helpdesk.accounts import trust_email
 from helpdesk.models import (
     Article,
+    Booking,
     Category,
     Comment,
     Organisation,
@@ -100,6 +101,14 @@ class ServiceAdmin(admin.ModelAdmin):
     list_filter = ["audience", "delivery", "is_active"]
     search_fields = ["name", "summary"]
     prepopulated_fields = {"slug": ["name"]}
+
+
+@admin.register(Booking)
+class BookingAdmin(admin.ModelAdmin):
+    list_display = ["id", "service", "visit_date", "time_slot", "status", "technician", "ticket"]
+    list_filter = ["status", "time_slot", "service"]
+    date_hierarchy = "visit_date"
+    raw_id_fields = ["ticket"]
 
 
 @admin.register(Category)

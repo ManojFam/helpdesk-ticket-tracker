@@ -258,6 +258,81 @@ class Comment(models.Model):
         return f"Comment by {self.author} on #{self.ticket_id}"
 
 
+class BookingQuerySet(models.QuerySet):
+    def visible_to(self, user):
+        """Same rule as tickets: you can see a booking if you can see its ticket."""
+        return self.filter(ticket__in=Ticket.objects.visible_to(user))
+
+    def upcoming(self):
+        return self.filter(
+            visit_date__gte=timezone.localdate(),
+            status__in=[Booking.Status.REQUESTED, Booking.Status.CONFIRMED],
+        )
+
+
+class Booking(models.Model):
+    """A request for a technician to visit. Every booking has its own ticket, which holds
+    the conversation, the SLA timers and the permissions. The rules for creating and
+    changing bookings are in helpdesk/bookings.py."""
+
+    class Slot(models.TextChoices):
+        MORNING = "morning", "Morning (8am - 12pm)"
+        AFTERNOON = "afternoon", "Afternoon (12pm - 5pm)"
+
+    class Status(models.TextChoices):
+        REQUESTED = "requested", "Requested"
+        CONFIRMED = "confirmed", "Confirmed"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    ticket = models.OneToOneField(Ticket, on_delete=models.CASCADE, related_name="booking")
+    service = models.ForeignKey(
+        Service,
+        on_delete=models.PROTECT,
+        limit_choices_to={"delivery__in": [Service.Delivery.ONSITE, Service.Delivery.EITHER]},
+    )
+    address = models.CharField(max_length=250)
+    contact_phone = models.CharField(max_length=30)
+    notes = models.TextField(blank=True, help_text="Access notes, e.g. parking or which door.")
+    visit_date = models.DateField()
+    time_slot = models.CharField(max_length=10, choices=Slot.choices)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.REQUESTED)
+    technician = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="visits",
+        limit_choices_to={"is_staff": True},
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = BookingQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["visit_date", "time_slot"]
+        constraints = [
+            # The database itself refuses to give a technician two confirmed visits in the
+            # same slot, even if a form check is ever skipped.
+            models.UniqueConstraint(
+                fields=["technician", "visit_date", "time_slot"],
+                condition=models.Q(status="confirmed"),
+                name="one_confirmed_visit_per_technician_slot",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.service} on {self.visit_date:%d %b %Y} ({self.get_time_slot_display()})"
+
+    def get_absolute_url(self):
+        return reverse("booking_detail", args=[self.pk])
+
+    @property
+    def requester(self):
+        return self.ticket.requester
+
+
 class Article(models.Model):
     """A knowledge-base article: a fix people can apply themselves."""
 
