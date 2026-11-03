@@ -8,6 +8,9 @@ A small service desk web app built with Django: staff raise tickets, IT works th
 
 ![Dashboard](docs/dashboard.png)
 
+**New to the code?** Read **[the guide](docs/GUIDE.md)**. It covers how the app works file by
+file, the data model, the SLA rules, permissions, a demo script and interview talking points.
+
 ## Features
 
 - **Tickets** have a priority (P1 to P4), a status (New, In progress, Waiting on requester,
